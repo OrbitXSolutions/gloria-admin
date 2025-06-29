@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { ProductAttributes, ProductColor } from "@/lib/types/database.types"
 
 interface AttributeInputProps {
@@ -156,17 +156,28 @@ export function AttributeInput({ value = {}, onChange, className }: AttributeInp
             </div>
             <div className="space-y-2">
               <Label htmlFor="attr-type">Type</Label>
-              <Select value={newType} onValueChange={(value: AttributeType) => setNewType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">Text</SelectItem>
-                  <SelectItem value="number">Number</SelectItem>
-                  <SelectItem value="color">Color</SelectItem>
-                  <SelectItem value="list">List</SelectItem>
-                </SelectContent>
-              </Select>
+              <RadioGroup 
+                value={newType} 
+                onValueChange={(value: AttributeType) => setNewType(value)}
+                className="flex flex-wrap gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="text" id="type-text" />
+                  <Label htmlFor="type-text" className="cursor-pointer">Text</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="number" id="type-number" />
+                  <Label htmlFor="type-number" className="cursor-pointer">Number</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="color" id="type-color" />
+                  <Label htmlFor="type-color" className="cursor-pointer">Color</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="list" id="type-list" />
+                  <Label htmlFor="type-list" className="cursor-pointer">List</Label>
+                </div>
+              </RadioGroup>
             </div>
           </div>
 

@@ -89,22 +89,36 @@ export function ProductsTableClient({ products, variantCounts }: Props) {
                 return (
                   <TableRow key={p.id}>
                     <TableCell>
-                      <Image
-                        alt={p.name_en ?? "Product"}
-                        fill
-                        className="object-cover rounded-md bg-muted"
-                        src={getProductImageUrl(p.primary_image) || "/placeholder.svg"}
-                      />
+                      <div className="relative h-10 w-10 rounded-md overflow-hidden">
+                        <Image
+                          alt={p.name_en ?? "Product"}
+                          fill
+                          className="object-cover rounded-md bg-muted"
+                          src={
+                            getProductImageUrl(p.primary_image) ||
+                            "/placeholder.svg"
+                          }
+                        />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <p className="font-medium">{p.name_en ?? "Unnamed"}</p>
-                      {p.name_ar && <p className="text-xs text-muted-foreground">{p.name_ar}</p>}
-                      <p className="mt-1 text-xs text-muted-foreground">SKU: {p.sku ?? "—"}</p>
+                      {p.name_ar && (
+                        <p className="text-xs text-muted-foreground">
+                          {p.name_ar}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        SKU: {p.sku ?? "—"}
+                      </p>
                     </TableCell>
                     <TableCell className="max-w-[160px]">
                       <div className="flex items-center gap-1">
                         {renderColor(p.attributes)}
-                        <ProductAttributesCompact attributes={p.attributes as any} maxItems={2} />
+                        <ProductAttributesCompact
+                          attributes={p.attributes as any}
+                          maxItems={2}
+                        />
                       </div>
                     </TableCell>
                     <TableCell>
@@ -123,7 +137,10 @@ export function ProductsTableClient({ products, variantCounts }: Props) {
                     </TableCell>
                     <TableCell>
                       {p.variant_group ? (
-                        <Badge variant="outline" className="text-xs flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-xs flex items-center gap-1"
+                        >
                           <Link2 className="h-3 w-3" /> {vCount}
                         </Badge>
                       ) : (
@@ -131,7 +148,11 @@ export function ProductsTableClient({ products, variantCounts }: Props) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={p.quantity && p.quantity > 0 ? "default" : "secondary"}>
+                      <Badge
+                        variant={
+                          p.quantity && p.quantity > 0 ? "default" : "secondary"
+                        }
+                      >
                         {p.quantity && p.quantity > 0 ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
@@ -156,23 +177,30 @@ export function ProductsTableClient({ products, variantCounts }: Props) {
                           </DropdownMenuItem>
                           {p.variant_group && (
                             <DropdownMenuItem asChild>
-                              <Link href={`/admin/products?variantGroup=${p.variant_group}`}>
+                              <Link
+                                href={`/admin/products?variantGroup=${p.variant_group}`}
+                              >
                                 <Link2 className="mr-2 h-4 w-4" /> Variants
                               </Link>
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => execDuplicate({ id: p.id })}>
+                          <DropdownMenuItem
+                            onClick={() => execDuplicate({ id: p.id })}
+                          >
                             <CopyIcon className="mr-2 h-4 w-4" /> Duplicate
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => execDelete({ id: p.id })}>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => execDelete({ id: p.id })}
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                )
+                );
               })}
             </TableBody>
           </Table>
