@@ -1,18 +1,24 @@
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Link2, Package } from "lucide-react"
-import Image from "next/image"
-import { ProductAttributesCompact } from "./product-attributes"
-import type { Database } from "@/lib/types/database.types"
-import { getProductImageUrl } from "@/lib/constants/supabase-storage"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Link2, Package } from "lucide-react";
+import Image from "next/image";
+import { ProductAttributesCompact } from "./product-attributes";
+import type { Database } from "@/lib/types/database.types";
+import { getProductImageUrl } from "@/lib/constants/supabase-storage";
 
-type Product = Database["public"]["Tables"]["products"]["Row"]
+type Product = Database["public"]["Tables"]["products"]["Row"];
 
 interface ProductVariantsProps {
-  product: Product
-  variants: Product[]
+  product: Product;
+  variants: Product[];
 }
 
 export function ProductVariants({ product, variants }: ProductVariantsProps) {
@@ -27,23 +33,23 @@ export function ProductVariants({ product, variants }: ProductVariantsProps) {
           <CardDescription>This product has no variants</CardDescription>
         </CardHeader>
       </Card>
-    )
+    );
   }
 
   const formatPrice = (price: number | null) => {
-    if (!price) return "N/A"
-    return `$${price.toFixed(2)}`
-  }
+    if (!price) return "N/A";
+    return `$${price.toFixed(2)}`;
+  };
 
   const getStockStatus = (quantity: number | null) => {
     if (!quantity || quantity === 0) {
-      return { label: "Out of Stock", variant: "destructive" as const }
+      return { label: "Out of Stock", variant: "destructive" as const };
     } else if (quantity < 10) {
-      return { label: "Low Stock", variant: "secondary" as const }
+      return { label: "Low Stock", variant: "secondary" as const };
     } else {
-      return { label: "In Stock", variant: "default" as const }
+      return { label: "In Stock", variant: "default" as const };
     }
-  }
+  };
 
   return (
     <Card>
@@ -94,7 +100,7 @@ export function ProductVariants({ product, variants }: ProductVariantsProps) {
                 </Badge>
               </div>
               <ProductAttributesCompact
-                attributes={product.attributes as object}
+                attributes={product.attributes}
                 maxItems={2}
               />
             </div>
@@ -142,7 +148,7 @@ export function ProductVariants({ product, variants }: ProductVariantsProps) {
                     </Badge>
                   </div>
                   <ProductAttributesCompact
-                    attributes={variant.attributes as object}
+                    attributes={variant.attributes}
                     maxItems={2}
                   />
                 </div>

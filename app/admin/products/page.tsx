@@ -1,17 +1,31 @@
 // page component – unchanged except import path
-import { Suspense } from "react"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import Link from "next/link"
-import { ProductsTableServer } from "@/components/admin/products-table-server"
+import { Suspense } from "react";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import Link from "next/link";
+import { ProductsTableServer } from "@/components/admin/products-table-server";
 
-export default function ProductsPage() {
+interface ProductsPageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    category?: string;
+    status?: string;
+    variantGroup?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }>;
+}
+
+export default function ProductsPage({ searchParams }: ProductsPageProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
-          <p className="text-muted-foreground">Manage your product catalog and inventory.</p>
+          <p className="text-muted-foreground">
+            Manage your product catalog and inventory.
+          </p>
         </div>
         <Button asChild>
           <Link href="/admin/products/create">
@@ -22,8 +36,8 @@ export default function ProductsPage() {
 
       {/* Server component renders suspense + client component */}
       <Suspense fallback={<p>Loading…</p>}>
-        <ProductsTableServer />
+        <ProductsTableServer searchParams={searchParams} />
       </Suspense>
     </div>
-  )
+  );
 }

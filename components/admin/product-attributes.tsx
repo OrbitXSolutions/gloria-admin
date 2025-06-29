@@ -1,16 +1,28 @@
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import type { Json, ProductAttributes, ProductColor } from "@/lib/types/database.types"
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type {
+  Json,
+  ProductAttributes,
+  ProductColor,
+} from "@/lib/types/database.types";
 
 interface ProductAttributesDisplayProps {
-  attributes: Json,
-  className?: string
+  attributes: Json;
+  className?: string;
 }
 
-export function ProductAttributesDisplay({ attributes, className }: ProductAttributesDisplayProps) {
+export function ProductAttributesDisplay({
+  attributes,
+  className,
+}: ProductAttributesDisplayProps) {
   attributes = attributes as ProductAttributes;
   if (!attributes || Object.keys(attributes).length === 0) {
-    return <span className="text-muted-foreground text-sm">No attributes</span>
+    return <span className="text-muted-foreground text-sm">No attributes</span>;
   }
 
   const renderColorAttribute = (color: ProductColor) => (
@@ -18,7 +30,10 @@ export function ProductAttributesDisplay({ attributes, className }: ProductAttri
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: color.hex }} />
+            <div
+              className="w-4 h-4 rounded-full border border-border"
+              style={{ backgroundColor: color.hex }}
+            />
             <span className="text-sm">{color.name}</span>
           </div>
         </TooltipTrigger>
@@ -28,11 +43,16 @@ export function ProductAttributesDisplay({ attributes, className }: ProductAttri
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 
   const renderAttribute = (key: string, value: any) => {
-    if (key === "color" && typeof value === "object" && value.hex && value.name) {
-      return renderColorAttribute(value as ProductColor)
+    if (
+      key === "color" &&
+      typeof value === "object" &&
+      value.hex &&
+      value.name
+    ) {
+      return renderColorAttribute(value as ProductColor);
     }
 
     if (Array.isArray(value)) {
@@ -44,11 +64,11 @@ export function ProductAttributesDisplay({ attributes, className }: ProductAttri
             </Badge>
           ))}
         </div>
-      )
+      );
     }
 
-    return <span className="text-sm">{String(value)}</span>
-  }
+    return <span className="text-sm">{String(value)}</span>;
+  };
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -61,27 +81,37 @@ export function ProductAttributesDisplay({ attributes, className }: ProductAttri
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 interface ProductAttributesCompactProps {
-  attributes?: ProductAttributes | null
-  maxItems?: number
+  attributes?: Json | null;
+  maxItems?: number;
 }
 
-export function ProductAttributesCompact({ attributes, maxItems = 3 }: ProductAttributesCompactProps) {
+export function ProductAttributesCompact({
+  attributes,
+  maxItems = 3,
+}: ProductAttributesCompactProps) {
+  attributes = attributes as ProductAttributes | null;
   if (!attributes || Object.keys(attributes).length === 0) {
-    return null
+    return null;
   }
 
-  const entries = Object.entries(attributes)
-  const visibleEntries = entries.slice(0, maxItems)
-  const remainingCount = entries.length - maxItems
+  const entries = Object.entries(attributes);
+  const visibleEntries = entries.slice(0, maxItems);
+  const remainingCount = entries.length - maxItems;
 
   return (
     <div className="flex flex-wrap gap-1">
       {visibleEntries.map(([key, value]) => {
-        if (key === "color" && typeof value === "object" && value.hex && value.name) {
+        if (
+          key === "color" &&
+          value &&
+          typeof value === "object" &&
+          (value as ProductAttributes)?.hex &&
+          (value as ProductAttributes)?.name
+        ) {
           return (
             <TooltipProvider key={key}>
               <Tooltip>
@@ -100,14 +130,14 @@ export function ProductAttributesCompact({ attributes, maxItems = 3 }: ProductAt
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )
+          );
         }
 
         return (
           <Badge key={key} variant="outline" className="text-xs">
             {key}: {Array.isArray(value) ? value.join(", ") : String(value)}
           </Badge>
-        )
+        );
       })}
       {remainingCount > 0 && (
         <Badge variant="outline" className="text-xs">
@@ -115,5 +145,5 @@ export function ProductAttributesCompact({ attributes, maxItems = 3 }: ProductAt
         </Badge>
       )}
     </div>
-  )
+  );
 }
