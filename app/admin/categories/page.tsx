@@ -15,10 +15,12 @@ interface SearchParams {
 }
 
 interface CategoriesPageProps {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }
 
-export default function CategoriesPage({ searchParams }: CategoriesPageProps) {
+export default async function CategoriesPage({
+  searchParams,
+}: CategoriesPageProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -37,7 +39,7 @@ export default function CategoriesPage({ searchParams }: CategoriesPageProps) {
       </div>
 
       <Suspense fallback={<CategoriesTableSkeleton />}>
-        <CategoriesTableServer searchParams={searchParams} />
+        <CategoriesTableServer searchParams={await searchParams} />
       </Suspense>
     </div>
   );

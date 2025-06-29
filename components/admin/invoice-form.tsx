@@ -30,7 +30,7 @@ import { invoiceSchema, type InvoiceFormData } from "@/lib/validations/invoice";
 import { createInvoice, updateInvoice } from "@/lib/actions/invoices";
 
 interface InvoiceFormProps {
-  initialData?: Partial<InvoiceFormData> & { id?: string };
+  initialData?: Partial<InvoiceFormData> & { id?: number };
   isEditing?: boolean;
 }
 
