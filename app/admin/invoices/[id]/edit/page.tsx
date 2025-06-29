@@ -1,23 +1,26 @@
-import { notFound } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { InvoiceForm } from "@/components/admin/invoice-form"
-import { ArrowLeft } from "lucide-react"
-import Link from "next/link"
-import { getInvoiceById } from "@/lib/actions/invoices"
+import { notFound } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { InvoiceForm } from "@/components/admin/invoice-form";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { getInvoiceById } from "@/lib/actions/invoices";
 
 interface EditInvoicePageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
-export default async function EditInvoicePage({ params }: EditInvoicePageProps) {
-  const { id } = await params
-  const result = await getInvoiceById({ id })
+export default async function EditInvoicePage({
+  params,
+}: EditInvoicePageProps) {
+  const { id } = await params;
+  const idNumber = Number(id);
+  const result = await getInvoiceById(idNumber);
 
-  if (!result?.data) {
-    notFound()
+  if (!result) {
+    notFound();
   }
 
-  const invoice = result.data
+  const invoice = result;
 
   return (
     <div className="space-y-6">
@@ -33,8 +36,6 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
           <p className="text-muted-foreground">Update invoice {invoice.code}</p>
         </div>
       </div>
-
-      <InvoiceForm initialData={{ ...invoice, id: invoice.id }} isEditing />
     </div>
-  )
+  );
 }

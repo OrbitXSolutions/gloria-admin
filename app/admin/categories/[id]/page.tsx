@@ -22,13 +22,13 @@ import { Separator } from "@/components/ui/separator";
 import { getCategoryById } from "@/lib/actions/categories";
 
 interface CategoryPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-  const categoryId = parseInt(params.id);
+  const categoryId = +(await params).id;
 
   if (isNaN(categoryId)) {
     notFound();

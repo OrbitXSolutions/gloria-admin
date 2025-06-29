@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod";
 
 export const invoiceSchema = z.object({
   code: z.string().min(1, "Invoice code is required"),
@@ -11,12 +11,12 @@ export const invoiceSchema = z.object({
   products: z
     .array(
       z.object({
-        id: z.string(),
+        id: z.number(),
         name: z.string(),
         quantity: z.number().min(1),
         price: z.number().min(0),
         total: z.number().min(0),
-      }),
+      })
     )
     .min(1, "At least one product is required"),
   subtotal: z.number().min(0),
@@ -25,6 +25,6 @@ export const invoiceSchema = z.object({
   rate: z.number().min(0).max(1).default(0),
   total_price: z.number().min(0),
   notes: z.string().optional(),
-})
+});
 
-export type InvoiceFormData = z.infer<typeof invoiceSchema>
+export type InvoiceFormData = z.infer<typeof invoiceSchema>;

@@ -3,15 +3,15 @@ import { getCategoryById } from "@/lib/actions/categories";
 import { CategoryForm } from "@/components/admin/category-form";
 
 interface EditCategoryPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditCategoryPage({
   params,
 }: EditCategoryPageProps) {
-  const categoryId = parseInt(params.id);
+  const categoryId = parseInt((await params).id);
 
   if (isNaN(categoryId)) {
     notFound();
