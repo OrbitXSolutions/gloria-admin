@@ -1,11 +1,11 @@
-import { z } from "zod"
+import { z } from "zod";
 
 const ProductColorSchema = z.object({
   hex: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid hex color format"),
   name: z.string().min(1, "Color name is required"),
-})
+});
 
-const ProductAttributesSchema = z.record(z.any()).optional()
+const ProductAttributesSchema = z.record(z.any()).optional();
 
 export const ProductFormSchema = z.object({
   name_en: z.string().min(1, "English name is required"),
@@ -24,6 +24,7 @@ export const ProductFormSchema = z.object({
   variant_group: z.string().optional(),
   keywords: z.array(z.string()).optional(),
   attributes: ProductAttributesSchema,
+  attributes_ar: ProductAttributesSchema.optional(),
   primary_image: z.string().optional(),
   images: z.array(z.string()).optional(),
   meta_title_en: z.string().optional(),
@@ -32,13 +33,19 @@ export const ProductFormSchema = z.object({
   meta_description_ar: z.string().optional(),
   meta_thumbnail: z.string().optional(),
   admin_note: z.string().optional(),
-})
+});
 
-export type ProductFormData = z.infer<typeof ProductFormSchema>
+export type ProductFormData = z.infer<typeof ProductFormSchema>;
 
 export const AttributeFormSchema = z.object({
   key: z.string().min(1, "Attribute key is required"),
-  value: z.union([z.string(), z.number(), z.boolean(), ProductColorSchema, z.array(z.string())]),
-})
+  value: z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    ProductColorSchema,
+    z.array(z.string()),
+  ]),
+});
 
-export type AttributeFormData = z.infer<typeof AttributeFormSchema>
+export type AttributeFormData = z.infer<typeof AttributeFormSchema>;

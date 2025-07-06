@@ -21,13 +21,18 @@ interface AttributeInputProps {
   value: ProductAttributes | null;
   onChange: (attributes: ProductAttributes) => void;
   className?: string;
+  language?: "en" | "ar";
+  label?: string;
 }
 
 export function AttributeInput({
   value = {},
   onChange,
   className,
+  language = "en",
+  label,
 }: AttributeInputProps) {
+  const isArabic = language === "ar";
   const attributes = value || {};
   const {
     color: initialColor,
@@ -36,7 +41,8 @@ export function AttributeInput({
   } = attributes;
 
   // --- State Management ---
-  const [color, setColor] = React.useState<ProductColor | null>(
+  // For English, color is an object; for Arabic, it's a string
+  const [color, setColor] = React.useState<ProductColor | string | null>(
     initialColor || null
   );
   const [size, setSize] = React.useState<string>(
@@ -57,15 +63,30 @@ export function AttributeInput({
   React.useEffect(() => {
     const newAttributes: ProductAttributes = { ...customAttributes };
 
-    // Only include color if it's a complete object
-    if (color && color.name && color.hex) {
-      newAttributes.color = color;
+    if (isArabic) {
+      // For Arabic, color is a simple string
+      if (typeof color === "string" && color.trim()) {
+        (newAttributes.color as unknown as string) = color.trim();
+      } else {
+        delete newAttributes.color;
+      }
     } else {
-      // Ensure color is not partially present
-      delete newAttributes.color;
+      // For English, color is an object
+      if (
+        color &&
+        typeof color === "object" &&
+        "name" in color &&
+        "hex" in color &&
+        color.name &&
+        color.hex
+      ) {
+        newAttributes.color = color;
+      } else {
+        delete newAttributes.color;
+      }
     }
 
-    // Only include size if it's not empty
+    // Size handling is the same for both languages
     if (size && size.trim()) {
       newAttributes.size = size.trim();
     } else {
@@ -76,7 +97,7 @@ export function AttributeInput({
     if (JSON.stringify(newAttributes) !== JSON.stringify(attributes)) {
       onChange(newAttributes);
     }
-  }, [color, size, customAttributes, onChange, attributes]);
+  }, [color, size, customAttributes, onChange, attributes, isArabic]);
 
   // --- Handlers ---
   const addCustomAttribute = () => {
@@ -85,10 +106,8 @@ export function AttributeInput({
     const key = newKey.trim();
     const value = newValue.trim();
 
-    // The useEffect hook will handle the onChange call
     setNewKey("");
     setNewValue("");
-    // Trigger the effect by updating custom attributes
     onChange({
       ...attributes,
       ...customAttributes,
@@ -98,68 +117,116 @@ export function AttributeInput({
 
   const removeCustomAttribute = (key: string) => {
     const { [key]: removed, ...rest } = customAttributes;
-    // The useEffect hook will handle the onChange call
     onChange({
       ...attributes,
       ...rest,
     });
   };
 
-  const handleColorChange = (newColor: Partial<ProductColor>) => {
-    setColor((prev) => {
-      const updated = { ...prev, ...newColor };
-      // Ensure we always have a valid structure if either field is set
-      if (updated.name !== undefined || updated.hex !== undefined) {
-        return {
-          name: updated.name || "",
-          hex: updated.hex || "#000000",
-        };
-      }
-      return null; // Or handle as needed
-    });
+  const handleColorChange = (newColor: Partial<ProductColor> | string) => {
+    if (isArabic) {
+      setColor(newColor as string);
+    } else {
+      setColor((prev) => {
+        if (typeof newColor === "string") return prev;
+        const updated = { ...(prev as ProductColor), ...newColor };
+        if (updated.name !== undefined || updated.hex !== undefined) {
+          return {
+            name: updated.name || "",
+            hex: updated.hex || "#000000",
+          };
+        }
+        return null;
+      });
+    }
   };
 
   const renderAttributeValue = (value: any) => {
     return <span className="text-sm">{String(value)}</span>;
   };
 
+  // Labels and placeholders based on language
+  const labels = {
+    title: label || (isArabic ? "خصائص المنتج" : "Product Attributes"),
+    primaryAttributes: isArabic ? "الخصائص الأساسية" : "Primary Attributes",
+    color: isArabic ? "اللون" : "Color",
+    colorName: isArabic ? "اسم اللون" : "Color name",
+    colorPlaceholder: isArabic ? "مثال: أزرق غامق" : "e.g., Deep Blue",
+    size: isArabic ? "الحجم" : "Size",
+    sizePlaceholder: isArabic ? "مثال: متوسط، 42، 250مل" : "e.g., M, 42, 250ml",
+    additionalAttributes: isArabic ? "خصائص إضافية" : "Additional Attributes",
+    noAdditionalAttributes: isArabic
+      ? "لا توجد خصائص إضافية."
+      : "No additional attributes.",
+    addCustomAttribute: isArabic ? "إضافة خاصية مخصصة" : "Add Custom Attribute",
+    attributeName: isArabic ? "اسم الخاصية" : "Attribute Name",
+    attributeNamePlaceholder: isArabic
+      ? "مثال: العلامة التجارية، المواد"
+      : "e.g., brand, material",
+    value: isArabic ? "القيمة" : "Value",
+    valuePlaceholder: isArabic ? "أدخل القيمة" : "Enter value",
+    addAttribute: isArabic ? "إضافة خاصية" : "Add Attribute",
+    cannotUseColorSize: isArabic
+      ? "لا يمكن استخدام 'color' أو 'size'."
+      : "Cannot use 'color' or 'size'.",
+    attributeExists: isArabic
+      ? "الخاصية موجودة بالفعل."
+      : "Attribute already exists.",
+  };
+
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-lg">Product Attributes</CardTitle>
+        <CardTitle className="text-lg">{labels.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* --- Primary Attributes --- */}
         <div className="space-y-4">
-          <h4 className="font-medium text-base">Primary Attributes</h4>
+          <h4 className="font-medium text-base">{labels.primaryAttributes}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Color Input */}
             <div className="space-y-2">
-              <Label>Color</Label>
-              <div className="flex items-center gap-2">
+              <Label>{labels.color}</Label>
+              {isArabic ? (
+                // For Arabic, just a simple text input for color name
                 <Input
-                  type="color"
-                  className="p-1 h-10 w-14 rounded-lg cursor-pointer"
-                  value={color?.hex || "#000000"}
-                  onChange={(e) => handleColorChange({ hex: e.target.value })}
+                  value={typeof color === "string" ? color : ""}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  placeholder={labels.colorPlaceholder}
+                  dir="rtl"
                 />
-                <Input
-                  className="flex-1"
-                  value={color?.name || ""}
-                  onChange={(e) => handleColorChange({ name: e.target.value })}
-                  placeholder="Color name (e.g., Deep Blue)"
-                />
-              </div>
+              ) : (
+                // For English, color picker and name
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    className="p-1 h-10 w-14 rounded-lg cursor-pointer"
+                    value={
+                      typeof color === "object" && color ? color.hex : "#000000"
+                    }
+                    onChange={(e) => handleColorChange({ hex: e.target.value })}
+                  />
+                  <Input
+                    className="flex-1"
+                    value={typeof color === "object" && color ? color.name : ""}
+                    onChange={(e) =>
+                      handleColorChange({ name: e.target.value })
+                    }
+                    placeholder={labels.colorPlaceholder}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Size Input */}
             <div className="space-y-2">
-              <Label htmlFor="attr-size">Size</Label>
+              <Label htmlFor="attr-size">{labels.size}</Label>
               <Input
                 id="attr-size"
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
-                placeholder="e.g., M, 42, 250ml"
+                placeholder={labels.sizePlaceholder}
+                dir={isArabic ? "rtl" : "ltr"}
               />
             </div>
           </div>
@@ -167,7 +234,9 @@ export function AttributeInput({
 
         {/* --- Additional Attributes --- */}
         <div className="border-t pt-6 space-y-4">
-          <h4 className="font-medium text-base">Additional Attributes</h4>
+          <h4 className="font-medium text-base">
+            {labels.additionalAttributes}
+          </h4>
 
           {/* Existing Custom Attributes */}
           <div className="space-y-3">
@@ -195,43 +264,45 @@ export function AttributeInput({
               ))
             ) : (
               <p className="text-sm text-muted-foreground">
-                No additional attributes.
+                {labels.noAdditionalAttributes}
               </p>
             )}
           </div>
 
           {/* Add New Custom Attribute */}
           <div className="border-t pt-4 space-y-4">
-            <h5 className="font-medium">Add Custom Attribute</h5>
+            <h5 className="font-medium">{labels.addCustomAttribute}</h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="attr-key">Attribute Name</Label>
+                <Label htmlFor="attr-key">{labels.attributeName}</Label>
                 <Input
                   id="attr-key"
                   value={newKey}
                   onChange={(e) => setNewKey(e.target.value)}
-                  placeholder="e.g., brand, material"
+                  placeholder={labels.attributeNamePlaceholder}
+                  dir={isArabic ? "rtl" : "ltr"}
                 />
                 {newKey.trim() &&
                   (newKey.toLowerCase() === "color" ||
                     newKey.toLowerCase() === "size") && (
                     <p className="text-sm text-destructive">
-                      Cannot use 'color' or 'size'.
+                      {labels.cannotUseColorSize}
                     </p>
                   )}
                 {newKey.trim() && customAttributes[newKey.trim()] && (
                   <p className="text-sm text-destructive">
-                    Attribute already exists.
+                    {labels.attributeExists}
                   </p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="attr-value">Value</Label>
+                <Label htmlFor="attr-value">{labels.value}</Label>
                 <Input
                   id="attr-value"
                   value={newValue}
                   onChange={(e) => setNewValue(e.target.value)}
-                  placeholder="Enter value"
+                  placeholder={labels.valuePlaceholder}
+                  dir={isArabic ? "rtl" : "ltr"}
                 />
               </div>
             </div>
@@ -241,8 +312,8 @@ export function AttributeInput({
               disabled={isNewKeyInvalid || !newValue.trim()}
               className="w-full sm:w-auto"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Attribute
+              <Plus className={isArabic ? "ml-2 h-4 w-4" : "mr-2 h-4 w-4"} />
+              {labels.addAttribute}
             </Button>
           </div>
         </div>

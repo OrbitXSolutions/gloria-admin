@@ -136,6 +136,12 @@ export function ProductForm({ product, mode }: ProductFormProps) {
         product?.attributes !== null
           ? product.attributes
           : {},
+      attributes_ar:
+        typeof product?.attributes_ar === "object" &&
+        !Array.isArray(product?.attributes_ar) &&
+        product?.attributes_ar !== null
+          ? product.attributes_ar
+          : {},
       primary_image: product?.primary_image || "",
       images: product?.images || [],
       meta_title_en: product?.meta_title_en || "",
@@ -937,23 +943,44 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               </CardContent>
             </Card>
 
-            {/* Product Attributes */}
+            {/* Product Attributes - Updated to handle both English and Arabic */}
             <div className="lg:col-span-3">
-              <FormField
-                control={form.control}
-                name="attributes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <AttributeInput
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="attributes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AttributeInput
+                          value={field.value ?? null}
+                          onChange={field.onChange}
+                          language="en"
+                          label="Product Attributes (English)"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="attributes_ar"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <AttributeInput
+                          value={field.value ?? null}
+                          onChange={field.onChange}
+                          language="ar"
+                          label="Product Attributes (Arabic)"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             {/* SEO & Meta */}
