@@ -1,0 +1,12 @@
+{
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    // "github.copilot.chat.codeGeneration.instructions": [
+    //     {
+    //         "file": "./.github/copilot-instructions.md"
+    //     }
+    // ],
+    "WillLuke.nextjs.addTypesOnSave": true,
+    "WillLuke.nextjs.hasPrompted": true,
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true
+}
