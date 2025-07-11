@@ -108,19 +108,20 @@ export function AttributeInput({
 
     setNewKey("");
     setNewValue("");
-    onChange({
+
+    // Create new attributes object with the new custom attribute
+    const updatedAttributes = {
       ...attributes,
-      ...customAttributes,
       [key]: value,
-    });
+    };
+
+    onChange(updatedAttributes);
   };
 
   const removeCustomAttribute = (key: string) => {
-    const { [key]: removed, ...rest } = customAttributes;
-    onChange({
-      ...attributes,
-      ...rest,
-    });
+    // Create new attributes object without the specified key
+    const { [key]: removed, ...rest } = attributes;
+    onChange(rest);
   };
 
   const handleColorChange = (newColor: Partial<ProductColor> | string) => {
