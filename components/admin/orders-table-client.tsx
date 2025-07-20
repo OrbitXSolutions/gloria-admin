@@ -370,34 +370,34 @@ export function OrdersTableClient({
             )}
             {(sorting.sortBy !== "created_at" ||
               sorting.sortOrder !== "desc") && (
-              <Badge variant="secondary" className="gap-1">
-                Sort:{" "}
-                {sorting.sortBy === "code"
-                  ? "Code"
-                  : sorting.sortBy === "customer"
-                  ? "Customer"
-                  : sorting.sortBy === "total"
-                  ? "Total"
-                  : sorting.sortBy === "status"
-                  ? "Status"
-                  : sorting.sortBy === "payment"
-                  ? "Payment"
-                  : sorting.sortBy === "created_at"
-                  ? "Date Created"
-                  : sorting.sortBy}{" "}
-                ({sorting.sortOrder === "asc" ? "↑" : "↓"})
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    updateFilters({ sortBy: "created_at", sortOrder: "desc" })
-                  }
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
+                <Badge variant="secondary" className="gap-1">
+                  Sort:{" "}
+                  {sorting.sortBy === "code"
+                    ? "Code"
+                    : sorting.sortBy === "customer"
+                      ? "Customer"
+                      : sorting.sortBy === "total"
+                        ? "Total"
+                        : sorting.sortBy === "status"
+                          ? "Status"
+                          : sorting.sortBy === "payment"
+                            ? "Payment"
+                            : sorting.sortBy === "created_at"
+                              ? "Date Created"
+                              : sorting.sortBy}{" "}
+                  ({sorting.sortOrder === "asc" ? "↑" : "↓"})
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      updateFilters({ sortBy: "created_at", sortOrder: "desc" })
+                    }
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              )}
           </div>
         )}{" "}
         {isMobile ? (
@@ -416,11 +416,10 @@ export function OrdersTableClient({
             ) : (
               orders.map((order) => {
                 const customerName = order.user
-                  ? `${order.user.first_name || ""} ${
-                      order.user.last_name || ""
+                  ? `${order.user.first_name || ""} ${order.user.last_name || ""
                     }`.trim() ||
-                    order.user.email ||
-                    "Unknown Customer"
+                  order.user.email ||
+                  "Unknown Customer"
                   : "Unknown Customer";
                 const itemsCount = order.order_items?.length ?? 0;
                 const firstItem = order.order_items?.[0];
@@ -481,7 +480,7 @@ export function OrdersTableClient({
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
-                                <Link href={`/admin/orders/${order.id}`}>
+                                <Link href={`/admin/orders/${order.code || order.id}`}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </Link>
@@ -613,9 +612,11 @@ export function OrdersTableClient({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View details
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/orders/${order.code || order.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View details
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Edit className="mr-2 h-4 w-4" />
