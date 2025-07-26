@@ -71,7 +71,8 @@ async function getOrderByCode(code: string): Promise<OrderWithItems | null> {
 export default async function OrderDetailsPage({
     params,
 }: OrderDetailsPageProps) {
-    const order = await getOrderByCode(params.code);
+    const { code } = await params;
+    const order = await getOrderByCode(code);
 
     if (!order) {
         notFound();
