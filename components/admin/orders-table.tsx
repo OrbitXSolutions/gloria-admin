@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { formatDistanceToNow } from "date-fns"
+import { formatPrice } from "@/lib/utils/format-price"
 
 async function getOrders() {
   const supabase = await createSsrClient();
@@ -25,7 +26,7 @@ async function getOrders() {
       order_items(
         quantity,
         price,
-        product:products(name_en)
+        product:products(name_en, currency_code)
       )
     `)
     .eq("is_deleted", false)
@@ -130,7 +131,22 @@ export async function OrdersTable() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <p className="font-medium">${order.total_price?.toFixed(2) || "0.00"}</p>
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {formatPrice(
+                            order.total_price,
+                            {
+                              code: order.order_items?.[0]?.product?.currency_code,
+                            },
+                            'en'
+                          )}
+                        </p>
+                        {order.shipping && order.shipping > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            incl. shipping
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={getPaymentMethodColor(order.payment_method || "cash")}>

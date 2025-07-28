@@ -8,6 +8,7 @@ import { Package, ShoppingCart, Users, DollarSign, TrendingUp, Eye, MoreHorizont
 import { formatDistanceToNow } from "date-fns"
 import Image from "next/image"
 import { getProductImageUrl } from "@/lib/constants/supabase-storage"
+import { formatPrice } from "@/lib/utils/format-price"
 
 async function getDashboardStats() {
   const supabase = await createSsrClient();
@@ -25,7 +26,7 @@ async function getDashboardStats() {
         order_items(
           quantity,
           price,
-          product:products(name_en, primary_image)
+          product:products(name_en, primary_image, currency_code)
         )
       `)
         .eq("is_deleted", false)
@@ -214,7 +215,20 @@ async function DashboardContent() {
                 <div className="flex items-center space-x-4">
                   <Badge className={getStatusColor(order.status || "pending")}>{order.status || "pending"}</Badge>
                   <div className="text-right">
-                    <p className="font-medium">${order.total_price?.toFixed(2) || "0.00"}</p>
+                    <p className="font-medium">
+                      {formatPrice(
+                        order.total_price,
+                        {
+                          code: order.order_items?.[0]?.product?.currency_code,
+                        },
+                        'en'
+                      )}
+                    </p>
+                    {order.shipping && order.shipping > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        incl. shipping
+                      </p>
+                    )}
                     <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
                   </div>
                   <Button variant="ghost" size="icon">

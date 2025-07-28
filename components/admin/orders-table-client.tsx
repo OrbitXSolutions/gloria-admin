@@ -37,6 +37,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import {
   MoreHorizontal,
   Edit,
   Eye,
@@ -49,6 +61,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import {
   Tooltip,
@@ -68,6 +82,8 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import type { Database } from "@/lib/types/database.types";
+import { updateOrderStatus } from "@/lib/actions/orders";
+import { formatPrice } from "@/lib/utils/format-price";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"] & {
   user?: {
@@ -80,6 +96,7 @@ type Order = Database["public"]["Tables"]["orders"]["Row"] & {
     price: number | null;
     product: {
       name_en: string | null;
+      currency_code: string | null;
     } | null;
   }>;
 };
@@ -123,6 +140,83 @@ export function OrdersTableClient({
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(filters.search);
   const isMobile = useIsMobile();
+
+  // Status update dialog state
+  const [statusUpdateDialog, setStatusUpdateDialog] = useState<{
+    isOpen: boolean;
+    order: Order | null;
+    newStatus: string;
+    adminNote: string;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    order: null,
+    newStatus: "",
+    adminNote: "",
+    isLoading: false,
+  });
+
+  // Available order statuses
+  const orderStatuses = [
+    { value: "draft", label: "Draft" },
+    { value: "pending", label: "Pending" },
+    { value: "confirmed", label: "Confirmed" },
+    { value: "processing", label: "Processing" },
+    { value: "shipped", label: "Shipped" },
+    { value: "delivered", label: "Delivered" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "failed", label: "Failed" },
+    { value: "refunded", label: "Refunded" },
+    { value: "returned", label: "Returned" },
+  ];
+
+  // Handle status update
+  const handleStatusUpdate = async () => {
+    if (!statusUpdateDialog.order) return;
+
+    setStatusUpdateDialog(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const result = await updateOrderStatus({
+        orderId: statusUpdateDialog.order.id,
+        newStatus: statusUpdateDialog.newStatus as any,
+        adminNote: statusUpdateDialog.adminNote || undefined,
+        changedBy: "admin", // You might want to get this from auth context
+      });
+
+      // The action returns the data directly, not wrapped in a success property
+      if (result) {
+        toast.success(`Order status updated to ${statusUpdateDialog.newStatus}`);
+        setStatusUpdateDialog({
+          isOpen: false,
+          order: null,
+          newStatus: "",
+          adminNote: "",
+          isLoading: false,
+        });
+        // Refresh the page to show updated data
+        router.refresh();
+      } else {
+        toast.error("Failed to update order status");
+      }
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      toast.error("Failed to update order status");
+    } finally {
+      setStatusUpdateDialog(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // Open status update dialog
+  const openStatusUpdateDialog = (order: Order) => {
+    setStatusUpdateDialog({
+      isOpen: true,
+      order,
+      newStatus: order.status || "pending",
+      adminNote: "",
+      isLoading: false,
+    });
+  };
 
   const updateFilters = (newFilters: FilterUpdate) => {
     const params = new URLSearchParams(searchParams);
@@ -233,8 +327,17 @@ export function OrdersTableClient({
     }
   };
 
-  const priceFmt = (price: number | null) =>
-    price !== null && price !== undefined ? `$${price.toFixed(2)}` : "$0.00";
+  const priceFmt = (price: number | null, order?: Order) => {
+    if (price === null || price === undefined) return "$0.00";
+
+    return formatPrice(
+      price,
+      {
+        code: order?.order_items?.[0]?.product?.currency_code ?? 'AED',
+      },
+      'en'
+    );
+  };
 
   return (
     <Card>
@@ -370,34 +473,34 @@ export function OrdersTableClient({
             )}
             {(sorting.sortBy !== "created_at" ||
               sorting.sortOrder !== "desc") && (
-              <Badge variant="secondary" className="gap-1">
-                Sort:{" "}
-                {sorting.sortBy === "code"
-                  ? "Code"
-                  : sorting.sortBy === "customer"
-                  ? "Customer"
-                  : sorting.sortBy === "total"
-                  ? "Total"
-                  : sorting.sortBy === "status"
-                  ? "Status"
-                  : sorting.sortBy === "payment"
-                  ? "Payment"
-                  : sorting.sortBy === "created_at"
-                  ? "Date Created"
-                  : sorting.sortBy}{" "}
-                ({sorting.sortOrder === "asc" ? "↑" : "↓"})
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    updateFilters({ sortBy: "created_at", sortOrder: "desc" })
-                  }
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
+                <Badge variant="secondary" className="gap-1">
+                  Sort:{" "}
+                  {sorting.sortBy === "code"
+                    ? "Code"
+                    : sorting.sortBy === "customer"
+                      ? "Customer"
+                      : sorting.sortBy === "total"
+                        ? "Total"
+                        : sorting.sortBy === "status"
+                          ? "Status"
+                          : sorting.sortBy === "payment"
+                            ? "Payment"
+                            : sorting.sortBy === "created_at"
+                              ? "Date Created"
+                              : sorting.sortBy}{" "}
+                  ({sorting.sortOrder === "asc" ? "↑" : "↓"})
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      updateFilters({ sortBy: "created_at", sortOrder: "desc" })
+                    }
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              )}
           </div>
         )}{" "}
         {isMobile ? (
@@ -416,11 +519,10 @@ export function OrdersTableClient({
             ) : (
               orders.map((order) => {
                 const customerName = order.user
-                  ? `${order.user.first_name || ""} ${
-                      order.user.last_name || ""
+                  ? `${order.user.first_name || ""} ${order.user.last_name || ""
                     }`.trim() ||
-                    order.user.email ||
-                    "Unknown Customer"
+                  order.user.email ||
+                  "Unknown Customer"
                   : "Unknown Customer";
                 const itemsCount = order.order_items?.length ?? 0;
                 const firstItem = order.order_items?.[0];
@@ -447,8 +549,13 @@ export function OrdersTableClient({
                           </div>
                           <div className="text-right flex-shrink-0">
                             <div className="font-medium">
-                              {priceFmt(order.total_price)}
+                              {priceFmt(order.total_price, order)}
                             </div>
+                            {order.shipping && order.shipping > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                incl. shipping
+                              </p>
+                            )}
                             <div className="flex gap-1 mt-1">
                               <Badge className={getStatusColor(order.status)}>
                                 {order.status || "pending"}
@@ -481,7 +588,7 @@ export function OrdersTableClient({
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
-                                <Link href={`/admin/orders/${order.id}`}>
+                                <Link href={`/admin/orders/${order.code || order.id}`}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </Link>
@@ -491,6 +598,10 @@ export function OrdersTableClient({
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit Order
                                 </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openStatusUpdateDialog(order)}>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Update Status
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem>
@@ -571,9 +682,16 @@ export function OrdersTableClient({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium">
-                          {priceFmt(order.total_price)}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="font-medium">
+                            {priceFmt(order.total_price, order)}
+                          </p>
+                          {order.shipping && order.shipping > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              incl. shipping
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -613,12 +731,14 @@ export function OrdersTableClient({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View details
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/orders/${order.code || order.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View details
+                              </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
+                            <DropdownMenuItem onClick={() => openStatusUpdateDialog(order)}>
+                              <RefreshCw className="mr-2 h-4 w-4" />
                               Update status
                             </DropdownMenuItem>
                             <DropdownMenuItem>
@@ -727,6 +847,91 @@ export function OrdersTableClient({
           </div>
         )}
       </CardContent>
+
+      {/* Status Update Dialog */}
+      <Dialog
+        open={statusUpdateDialog.isOpen}
+        onOpenChange={(open) => setStatusUpdateDialog(prev => ({ ...prev, isOpen: open }))}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Order Status</DialogTitle>
+            <DialogDescription>
+              Update the status for order #{statusUpdateDialog.order?.code || statusUpdateDialog.order?.id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <Select
+                value={statusUpdateDialog.newStatus}
+                onValueChange={(value) =>
+                  setStatusUpdateDialog(prev => ({ ...prev, newStatus: value }))
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orderStatuses.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="note" className="text-right">
+                Note
+              </Label>
+              <Textarea
+                id="note"
+                placeholder="Optional admin note..."
+                className="col-span-3"
+                value={statusUpdateDialog.adminNote}
+                onChange={(e) =>
+                  setStatusUpdateDialog(prev => ({ ...prev, adminNote: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setStatusUpdateDialog({
+                  isOpen: false,
+                  order: null,
+                  newStatus: "",
+                  adminNote: "",
+                  isLoading: false,
+                })
+              }
+              disabled={statusUpdateDialog.isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleStatusUpdate}
+              disabled={statusUpdateDialog.isLoading || !statusUpdateDialog.newStatus}
+            >
+              {statusUpdateDialog.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Status"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
