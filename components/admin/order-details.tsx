@@ -1,16 +1,37 @@
 "use client";
 
 import * as React from "react";
+import { useState } from "react";
 import { format } from "date-fns";
-import { ArrowLeft, Package, User, MapPin, CreditCard, FileText, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Package, User, MapPin, CreditCard, FileText, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { getProductImageUrl } from "@/lib/constants/supabase-storage";
 import Link from "next/link";
 import type { OrderWithItems } from "@/lib/types/database.types";
+import { updateOrderStatus } from "@/lib/actions/orders";
+import { formatPrice } from "@/lib/utils/format-price";
 
 interface OrderDetailsProps {
     order: OrderWithItems;
@@ -34,17 +55,78 @@ const paymentMethodConfig = {
     card: { label: "Credit Card", icon: CreditCard },
 };
 
+// Available order statuses for the update dialog
+const orderStatuses = [
+    { value: "draft", label: "Draft" },
+    { value: "pending", label: "Pending" },
+    { value: "confirmed", label: "Confirmed" },
+    { value: "processing", label: "Processing" },
+    { value: "shipped", label: "Shipped" },
+    { value: "delivered", label: "Delivered" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "failed", label: "Failed" },
+    { value: "refunded", label: "Refunded" },
+    { value: "returned", label: "Returned" },
+];
+
 export function OrderDetails({ order }: OrderDetailsProps) {
+    const [statusUpdateDialog, setStatusUpdateDialog] = useState<{
+        isOpen: boolean;
+        newStatus: string;
+        adminNote: string;
+        isLoading: boolean;
+    }>({
+        isOpen: false,
+        newStatus: order.status || "pending",
+        adminNote: "",
+        isLoading: false,
+    });
+
     const currentStatus = order.status || "draft";
     const statusInfo = statusConfig[currentStatus as keyof typeof statusConfig];
     const paymentInfo = order.payment_method ? paymentMethodConfig[order.payment_method] : null;
 
-    const formatCurrency = (amount: number | null) => {
-        if (amount === null) return "N/A";
-        return new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: "USD", // You might want to get this from the order's currency
-        }).format(amount);
+    // Handle status update
+    const handleStatusUpdate = async () => {
+        setStatusUpdateDialog(prev => ({ ...prev, isLoading: true }));
+
+        try {
+            const result = await updateOrderStatus({
+                orderId: order.id,
+                newStatus: statusUpdateDialog.newStatus as any,
+                adminNote: statusUpdateDialog.adminNote || undefined,
+                changedBy: "admin", // You might want to get this from auth context
+            });
+
+            if (result) {
+                toast.success(`Order status updated to ${statusUpdateDialog.newStatus}`);
+                setStatusUpdateDialog({
+                    isOpen: false,
+                    newStatus: order.status || "pending",
+                    adminNote: "",
+                    isLoading: false,
+                });
+                // Refresh the page to show updated data
+                window.location.reload();
+            } else {
+                toast.error("Failed to update order status");
+            }
+        } catch (error) {
+            console.error("Error updating order status:", error);
+            toast.error("Failed to update order status");
+        } finally {
+            setStatusUpdateDialog(prev => ({ ...prev, isLoading: false }));
+        }
+    };
+
+    // Open status update dialog
+    const openStatusUpdateDialog = () => {
+        setStatusUpdateDialog({
+            isOpen: true,
+            newStatus: order.status || "pending",
+            adminNote: "",
+            isLoading: false,
+        });
     };
 
     const formatDate = (dateString: string | null) => {
@@ -77,6 +159,15 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                         {statusInfo.icon && <statusInfo.icon className="mr-1 h-3 w-3" />}
                         {statusInfo.label}
                     </Badge>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={openStatusUpdateDialog}
+                        className="gap-2"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        Update Status
+                    </Button>
                 </div>
             </div>
 
@@ -119,10 +210,22 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-medium">
-                                                    {formatCurrency(item.price)}
+                                                    {formatPrice(
+                                                        item.price,
+                                                        {
+                                                            code: item.product?.currency_code,
+                                                        },
+                                                        'en'
+                                                    )}
                                                 </p>
                                                 <p className="text-sm text-muted-foreground">
-                                                    Total: {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                                                    Total: {formatPrice(
+                                                        (item.price || 0) * (item.quantity || 0),
+                                                        {
+                                                            code: item.product?.currency_code,
+                                                        },
+                                                        'en'
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
@@ -277,31 +380,75 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                             )}
 
                             <div className="space-y-2">
+                                {/* Show subtotal from order items calculation or order.subtotal */}
                                 <div className="flex justify-between">
                                     <span>Subtotal:</span>
-                                    <span>{formatCurrency(order.total_price)}</span>
+                                    <span>{formatPrice(
+                                        order.subtotal || (order.order_items?.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0) || 0),
+                                        {
+                                            code: order.order_items?.[0]?.product?.currency_code,
+                                        },
+                                        'en'
+                                    )}</span>
                                 </div>
+
+                                {/* Show shipping fee from order.shipping */}
+                                {order.shipping && order.shipping > 0 && (
+                                    <div className="flex justify-between">
+                                        <span>Shipping:</span>
+                                        <span>{formatPrice(
+                                            order.shipping,
+                                            {
+                                                code: order.order_items?.[0]?.product?.currency_code,
+                                            },
+                                            'en'
+                                        )}</span>
+                                    </div>
+                                )}
+
+                                {/* Show invoice details if available */}
                                 {order.invoice && (
                                     <>
-                                        {order.invoice.delivery_fees && (
+                                        {order.invoice.delivery_fees && order.invoice.delivery_fees > 0 && (
                                             <div className="flex justify-between">
                                                 <span>Delivery Fees:</span>
-                                                <span>{formatCurrency(order.invoice.delivery_fees)}</span>
+                                                <span>{formatPrice(
+                                                    order.invoice.delivery_fees,
+                                                    {
+                                                        code: order.order_items?.[0]?.product?.currency_code,
+                                                    },
+                                                    'en'
+                                                )}</span>
                                             </div>
                                         )}
-                                        {order.invoice.discount && (
+                                        {order.invoice.discount && order.invoice.discount > 0 && (
                                             <div className="flex justify-between">
                                                 <span>Discount:</span>
-                                                <span>-{formatCurrency(order.invoice.discount)}</span>
+                                                <span>-{formatPrice(
+                                                    order.invoice.discount,
+                                                    {
+                                                        code: order.order_items?.[0]?.product?.currency_code,
+                                                    },
+                                                    'en'
+                                                )}</span>
                                             </div>
                                         )}
-                                        <Separator />
-                                        <div className="flex justify-between font-medium">
-                                            <span>Total:</span>
-                                            <span>{formatCurrency(order.invoice.total_price)}</span>
-                                        </div>
                                     </>
                                 )}
+
+                                <Separator />
+
+                                {/* Show total - prioritize order.total_price, fallback to invoice.total_price */}
+                                <div className="flex justify-between font-medium">
+                                    <span>Total:</span>
+                                    <span>{formatPrice(
+                                        order.total_price || order.invoice?.total_price || 0,
+                                        {
+                                            code: order.order_items?.[0]?.product?.currency_code,
+                                        },
+                                        'en'
+                                    )}</span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -339,6 +486,90 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                     )}
                 </div>
             </div>
+
+            {/* Status Update Dialog */}
+            <Dialog
+                open={statusUpdateDialog.isOpen}
+                onOpenChange={(open) => setStatusUpdateDialog(prev => ({ ...prev, isOpen: open }))}
+            >
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Update Order Status</DialogTitle>
+                        <DialogDescription>
+                            Update the status for order #{order.code}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="status" className="text-right">
+                                Status
+                            </Label>
+                            <Select
+                                value={statusUpdateDialog.newStatus}
+                                onValueChange={(value) =>
+                                    setStatusUpdateDialog(prev => ({ ...prev, newStatus: value }))
+                                }
+                            >
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {orderStatuses.map((status) => (
+                                        <SelectItem key={status.value} value={status.value}>
+                                            {status.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="note" className="text-right">
+                                Note
+                            </Label>
+                            <Textarea
+                                id="note"
+                                placeholder="Optional admin note..."
+                                className="col-span-3"
+                                value={statusUpdateDialog.adminNote}
+                                onChange={(e) =>
+                                    setStatusUpdateDialog(prev => ({ ...prev, adminNote: e.target.value }))
+                                }
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                setStatusUpdateDialog({
+                                    isOpen: false,
+                                    newStatus: order.status || "pending",
+                                    adminNote: "",
+                                    isLoading: false,
+                                })
+                            }
+                            disabled={statusUpdateDialog.isLoading}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleStatusUpdate}
+                            disabled={statusUpdateDialog.isLoading || !statusUpdateDialog.newStatus}
+                        >
+                            {statusUpdateDialog.isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Updating...
+                                </>
+                            ) : (
+                                "Update Status"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 } 
