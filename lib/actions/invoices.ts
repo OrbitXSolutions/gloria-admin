@@ -24,7 +24,14 @@ export async function getInvoices(params: InvoicesListParams = {}) {
 
   let query = supabase
     .from("invoices")
-    .select("*", { count: "exact" })
+    .select(`
+      *,
+      order:orders(
+        order_items(
+          product:products(currency_code)
+        )
+      )
+    `, { count: "exact" })
     .eq("is_deleted", false)
     .order("created_at", { ascending: false });
 

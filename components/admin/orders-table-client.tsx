@@ -333,7 +333,7 @@ export function OrdersTableClient({
     return formatPrice(
       price,
       {
-        code: order?.order_items?.[0]?.product?.currency_code,
+        code: order?.order_items?.[0]?.product?.currency_code ?? 'AED',
       },
       'en'
     );
