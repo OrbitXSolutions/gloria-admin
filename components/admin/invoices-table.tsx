@@ -2,17 +2,16 @@ import { InvoicesTableClient } from "./invoices-table-client";
 import { getInvoices } from "@/lib/actions/invoices";
 
 interface InvoicesTableProps {
-  searchParams?: {
+  searchParams?: Promise<{
     page?: string;
     search?: string;
-  };
+  }>;
 }
 
 export async function InvoicesTable({ searchParams }: InvoicesTableProps) {
-  const page = Number(searchParams?.page) || 1;
-  const search = searchParams?.search || "";
+  const { page = "1", search = "" } = await searchParams || {};
 
-  const result = await getInvoices({ page, limit: 10, search });
+  const result = await getInvoices({ page: Number(page), limit: 10, search });
 
   if (!result) {
     return <div>Failed to load invoices</div>;
@@ -30,10 +29,10 @@ export async function InvoicesTable({ searchParams }: InvoicesTableProps) {
 
   return (
     <InvoicesTableClient
-      invoices={sanitizedInvoices}
+      invoices={sanitizedInvoices as any}
       total={total}
       totalPages={totalPages}
-      currentPage={page}
+      currentPage={Number(page)}
     />
   );
 }

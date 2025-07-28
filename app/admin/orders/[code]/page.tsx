@@ -4,9 +4,7 @@ import { OrderDetails } from "@/components/admin/order-details";
 import type { OrderWithItems } from "@/lib/types/database.types";
 
 interface OrderDetailsPageProps {
-    params: {
-        code: string;
-    };
+    params: Promise<{ code: string }>;
 }
 
 async function getOrderByCode(code: string): Promise<OrderWithItems | null> {
