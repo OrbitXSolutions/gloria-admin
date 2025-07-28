@@ -39,10 +39,18 @@ import { deleteInvoice, duplicateInvoice } from "@/lib/actions/invoices";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Database } from "@/lib/types/database.types";
+import { formatPrice } from "@/lib/utils/format-price";
 
 type Invoice = Database["public"]["Tables"]["invoices"]["Row"] & {
   user_name: string;
   user_email: string;
+  order?: {
+    order_items?: Array<{
+      product?: {
+        currency_code: string | null;
+      } | null;
+    }>;
+  };
 };
 
 interface InvoicesTableClientProps {
@@ -162,7 +170,11 @@ export function InvoicesTableClient({
                     {invoice.user_email}
                   </TableCell>
                   <TableCell className="font-medium">
-                    ${invoice.total_price.toFixed(2)}
+                    {formatPrice(
+                      invoice.total_price,
+                      { code: invoice.order?.order_items?.[0]?.product?.currency_code || "USD" },
+                      'en'
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {invoice.created_at ? (
