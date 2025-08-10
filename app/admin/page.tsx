@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createSsrClient } from "@/lib/supabase/server"
 import { Package, ShoppingCart, Users, DollarSign, TrendingUp, Eye, MoreHorizontal } from "lucide-react"
+import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import Image from "next/image"
 import { getProductImageUrl } from "@/lib/constants/supabase-storage"
@@ -103,6 +104,7 @@ async function DashboardContent() {
       description: "Active products in store",
       icon: Package,
       trend: "+12% from last month",
+      href: "/admin/products",
     },
     {
       title: "Total Orders",
@@ -110,6 +112,7 @@ async function DashboardContent() {
       description: "Orders received",
       icon: ShoppingCart,
       trend: "+8% from last month",
+      href: "/admin/orders",
     },
     {
       title: "Total Users",
@@ -117,13 +120,15 @@ async function DashboardContent() {
       description: "Registered customers",
       icon: Users,
       trend: "+15% from last month",
+      href: "/admin/users",
     },
     {
       title: "Total Revenue",
-      value: `$${stats.totalRevenue.toLocaleString()}`,
+      value: `${formatPrice(stats.totalRevenue, { code: 'AED', symbol_en: 'AED' }, 'en')}`,
       description: "Total sales revenue",
       icon: DollarSign,
       trend: "+22% from last month",
+      href: "/admin/orders",
     },
   ]
 
@@ -151,19 +156,21 @@ async function DashboardContent() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="relative overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span>{stat.trend}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <Link key={stat.title} href={stat.href} className="block">
+            <Card className="relative overflow-hidden hover:bg-accent/30 transition-colors cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                  <TrendingUp className="h-3 w-3" />
+                  <span>{stat.trend}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
@@ -174,16 +181,18 @@ async function DashboardContent() {
             <CardTitle>Recent Orders</CardTitle>
             <CardDescription>Latest orders from your customers</CardDescription>
           </div>
-          <Button variant="outline" size="sm">
-            <Eye className="mr-2 h-4 w-4" />
-            View All
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/admin/orders">
+              <Eye className="mr-2 h-4 w-4" />
+              View All
+            </Link>
           </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {stats.recentOrders.map((order: any) => (
-              <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
+              <Link key={order.id} href={`/admin/orders/${order.code || order.id}`} className="flex items-center  flex-wrap justify-between p-4 border rounded-lg hover:bg-accent/20 transition-colors">
+                <div className="flex items-center space-x-4 flex-wrap">
                   <div className="flex -space-x-2">
                     {order.order_items?.slice(0, 3).map((item: any, index: number) => (
                       <div
@@ -212,30 +221,40 @@ async function DashboardContent() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <Badge className={getStatusColor(order.status || "pending")}>{order.status || "pending"}</Badge>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatPrice(
-                        order.total_price,
-                        {
-                          code: order.order_items?.[0]?.product?.currency_code,
-                        },
-                        'en'
-                      )}
-                    </p>
-                    {order.shipping && order.shipping > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        incl. shipping
-                      </p>
-                    )}
-                    <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
+                <div className="flex items-center justify-between flex-wrap space-x-4 flex-1">
+                  <div className="flex-1">
+                    <Badge className={getStatusColor(order.status || "pending")}>{order.status || "pending"}</Badge>
                   </div>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <div className="flex">
+                    <div className="text-right">
+                      <p className="font-medium">
+                        {formatPrice(
+                          order.total_price,
+                          {
+                            code: order.order_items?.[0]?.product?.currency_code,
+                          },
+                          'en'
+                        )}
+                      </p>
+                      {order.shipping && order.shipping > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          incl. shipping
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
+                    </div>
+                    <div >
+                      <Button
+                        variant="ghost" size="icon" asChild>
+                        <Link href={`/admin/orders/${order.code || order.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>

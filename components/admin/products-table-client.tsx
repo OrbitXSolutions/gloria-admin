@@ -216,9 +216,9 @@ export function ProductsTableClient({
         : { label: "In Stock", variant: "default" as const }
       : { label: "Out of Stock", variant: "destructive" as const };
 
-  const priceFmt = (price: number | null, cur?: { symbol_en: string | null }) =>
+  const priceFmt = (price: number | null, cur?: { symbol_en: string | null, symbol_ar?: string | null, code?: string | null }) =>
     price !== null && price !== undefined
-      ? `${cur?.symbol_en ?? "$"}${price.toFixed(2)}`
+      ? `${(cur?.symbol_en || cur?.code || 'AED')}${price.toFixed(2)}`
       : "N/A";
 
   const renderColor = (attrs: Product["attributes"]) => {
@@ -372,32 +372,32 @@ export function ProductsTableClient({
             )}
             {(sorting.sortBy !== "created_at" ||
               sorting.sortOrder !== "desc") && (
-              <Badge variant="secondary" className="gap-1">
-                Sort:{" "}
-                {sorting.sortBy === "name"
-                  ? "Name"
-                  : sorting.sortBy === "price"
-                  ? "Price"
-                  : sorting.sortBy === "quantity"
-                  ? "Stock"
-                  : sorting.sortBy === "sku"
-                  ? "SKU"
-                  : sorting.sortBy === "created_at"
-                  ? "Date Created"
-                  : sorting.sortBy}{" "}
-                ({sorting.sortOrder === "asc" ? "↑" : "↓"})
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    updateFilters({ sortBy: "created_at", sortOrder: "desc" })
-                  }
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
+                <Badge variant="secondary" className="gap-1">
+                  Sort:{" "}
+                  {sorting.sortBy === "name"
+                    ? "Name"
+                    : sorting.sortBy === "price"
+                      ? "Price"
+                      : sorting.sortBy === "quantity"
+                        ? "Stock"
+                        : sorting.sortBy === "sku"
+                          ? "SKU"
+                          : sorting.sortBy === "created_at"
+                            ? "Date Created"
+                            : sorting.sortBy}{" "}
+                  ({sorting.sortOrder === "asc" ? "↑" : "↓"})
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      updateFilters({ sortBy: "created_at", sortOrder: "desc" })
+                    }
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              )}
           </div>
         )}
 
@@ -540,8 +540,8 @@ export function ProductsTableClient({
             )}
           </div>
         ) : (
-          // Desktop Table Layout
-          <div className="rounded-md border">
+          // Desktop Table Layout with horizontal scroll on small widths
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

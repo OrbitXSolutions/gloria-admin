@@ -11,5 +11,5 @@ export async function createAdminClient() {
         autoRefreshToken: false,
       },
     }
-  );
+  )
 }
