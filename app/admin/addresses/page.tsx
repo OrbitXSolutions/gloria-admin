@@ -66,7 +66,6 @@ export default function AddressesPage({ searchParams }: PageProps) {
     return (
         <div className="space-y-6">
             <Suspense fallback={<p>Loading…</p>}>
-                {/* @ts-expect-error Async Server Component */}
                 <AddressesContent searchParams={searchParams} />
             </Suspense>
         </div>

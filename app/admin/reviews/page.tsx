@@ -81,7 +81,6 @@ export default function ReviewsPage({ searchParams }: ReviewsPageProps) {
     return (
         <div className="space-y-6">
             <Suspense fallback={<p>Loading…</p>}>
-                {/* @ts-expect-error Async Server Component */}
                 <ReviewsContent searchParams={searchParams} />
             </Suspense>
         </div>
