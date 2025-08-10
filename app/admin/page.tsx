@@ -191,8 +191,8 @@ async function DashboardContent() {
         <CardContent>
           <div className="space-y-4">
             {stats.recentOrders.map((order: any) => (
-              <Link href={`/admin/orders/${order.code || order.id}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/20 transition-colors">
-                <div className="flex items-center space-x-4">
+              <Link key={order.id} href={`/admin/orders/${order.code || order.id}`} className="flex items-center  flex-wrap justify-between p-4 border rounded-lg hover:bg-accent/20 transition-colors">
+                <div className="flex items-center space-x-4 flex-wrap">
                   <div className="flex -space-x-2">
                     {order.order_items?.slice(0, 3).map((item: any, index: number) => (
                       <div
@@ -221,30 +221,38 @@ async function DashboardContent() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <Badge className={getStatusColor(order.status || "pending")}>{order.status || "pending"}</Badge>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatPrice(
-                        order.total_price,
-                        {
-                          code: order.order_items?.[0]?.product?.currency_code,
-                        },
-                        'en'
-                      )}
-                    </p>
-                    {order.shipping && order.shipping > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        incl. shipping
-                      </p>
-                    )}
-                    <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
+                <div className="flex items-center justify-between flex-wrap space-x-4 flex-1">
+                  <div className="flex-1">
+                    <Badge className={getStatusColor(order.status || "pending")}>{order.status || "pending"}</Badge>
                   </div>
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/admin/orders/${order.code || order.id}`}>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  <div className="flex">
+                    <div className="text-right">
+                      <p className="font-medium">
+                        {formatPrice(
+                          order.total_price,
+                          {
+                            code: order.order_items?.[0]?.product?.currency_code,
+                          },
+                          'en'
+                        )}
+                      </p>
+                      {order.shipping && order.shipping > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          incl. shipping
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
+                    </div>
+                    <div >
+                      <Button
+                        variant="ghost" size="icon" asChild>
+                        <Link href={`/admin/orders/${order.code || order.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+
+                  </div>
                 </div>
               </Link>
             ))}

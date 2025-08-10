@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createSsrClient } from '@/lib/supabase/server'
 import { actionClient } from '@/lib/common/safe-action'
 
-export async function listReviews({ page = 1, limit = 20, search, onlyPending = false }: { page?: number, limit?: number, search?: string, onlyPending?: boolean }) {
+export async function listReviews({ page = 1, limit = 20, search, status }: { page?: number, limit?: number, search?: string, status?: 'pending' | 'approved' }) {
     const supabase = await createSsrClient()
     const from = (page - 1) * limit
     const to = from + limit - 1
@@ -19,7 +19,8 @@ export async function listReviews({ page = 1, limit = 20, search, onlyPending = 
         .eq('is_deleted', false)
         .order('created_at', { ascending: false })
 
-    if (onlyPending) query = query.eq('is_approved', false)
+    if (status === 'pending') query = query.eq('is_approved', false)
+    if (status === 'approved') query = query.eq('is_approved', true)
     if (search && search.trim()) {
         const s = `%${search}%`
         query = query.or(

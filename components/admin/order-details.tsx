@@ -137,15 +137,15 @@ export function OrderDetails({ order }: OrderDetailsProps) {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between flex-wrap">
+                <div className="flex items-center gap-4 flex-wrap">
                     <Button variant="ghost" size="sm" asChild>
                         <Link href="/admin/orders">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Orders
                         </Link>
                     </Button>
-                    <div>
+                    <div className="">
                         <h1 className="text-3xl font-bold tracking-tight">
                             Order #{order.code}
                         </h1>

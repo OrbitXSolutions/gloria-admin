@@ -13,7 +13,8 @@ export default async function UsersPage() {
         .eq('user_id', auth.user?.id || '')
         .eq('is_deleted', false)
     const myRoles = (myRolesRows || []).map((r: any) => r?.roles?.name).filter(Boolean) as string[]
-    const canManageRoles = myRoles.includes('superadmin')
+    const allowedEmails = new Set(['a.rashedy99@gmail.com', 'rowyda15@gmail.com'])
+    const canManageRoles = myRoles.includes('superadmin') || (auth.user?.email ? allowedEmails.has(auth.user.email) : false)
 
     const { users, rolesByUserId } = await getUsers(1, 50)
     return (

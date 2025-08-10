@@ -12,7 +12,7 @@ export const setUserRoles = action
     .inputSchema(z.object({ userId: z.string(), roleNames: z.array(z.string()) }))
     .action(async ({ parsedInput }) => {
         const supabase = await createSsrClient()
-        // Permission: only superadmin can manage roles
+        // Permission: superadmin role OR whitelisted emails can manage roles
         const { data: auth } = await supabase.auth.getUser()
         if (!auth.user) throw new Error('Not authenticated')
         const { data: myRolesRows } = await supabase
@@ -21,7 +21,12 @@ export const setUserRoles = action
             .eq('user_id', auth.user.id)
             .eq('is_deleted', false)
         const myRoles = (myRolesRows || []).map((r: any) => r?.roles?.name).filter(Boolean) as string[]
-        if (!myRoles.includes('superadmin')) throw new Error('Only superadmin can manage roles')
+        const ALLOWED_ROLE_MANAGERS = new Set([
+            'a.rashedy99@gmail.com',
+            'rowyda15@gmail.com',
+        ])
+        const canManage = myRoles.includes('superadmin') || (auth.user.email ? ALLOWED_ROLE_MANAGERS.has(auth.user.email) : false)
+        if (!canManage) throw new Error('Insufficient permissions to manage roles')
         const PRIMARY_SUPERADMINS = new Set([
             'a.rashedy99@gmail.com',
             'rowyda.rashedy@gmail.com',
@@ -88,6 +93,17 @@ export const setUserRoles = action
         return { ok: true }
     })
 
+export async function getAllRoles() {
+    const supabase = await createSsrClient()
+    const { data, error } = await supabase
+        .from('roles')
+        .select('name')
+        .order('name', { ascending: true })
+    if (error) throw new Error(error.message)
+    const roles = (data || []).map(r => r.name).filter(Boolean)
+    return roles as string[]
+}
+
 export const deleteUser = action
     .inputSchema(z.object({ userId: z.string() }))
     .action(async ({ parsedInput }) => {
@@ -95,14 +111,19 @@ export const deleteUser = action
         const { data: auth } = await supabase.auth.getUser()
         if (!auth.user) throw new Error('Not authenticated')
 
-        // Only superadmin can delete users
+        // Only superadmin or allowlisted emails can delete users
         const { data: myRolesRows } = await supabase
             .from('user_roles')
             .select('roles(name)')
             .eq('user_id', auth.user.id)
             .eq('is_deleted', false)
         const myRoles = (myRolesRows || []).map((r: any) => r?.roles?.name).filter(Boolean) as string[]
-        if (!myRoles.includes('superadmin')) throw new Error('Only superadmin can delete users')
+        const ALLOWED_ROLE_MANAGERS = new Set([
+            'a.rashedy99@gmail.com',
+            'rowyda15@gmail.com',
+        ])
+        const canManage = myRoles.includes('superadmin') || (auth.user.email ? ALLOWED_ROLE_MANAGERS.has(auth.user.email) : false)
+        if (!canManage) throw new Error('Insufficient permissions to delete users')
 
         // Prevent deleting primary superadmins
         const { data: userRow } = await supabase
