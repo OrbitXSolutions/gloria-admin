@@ -113,8 +113,39 @@ const navigation = [
   },
 ]
 
-export function AdminSidebar() {
+type AdminSidebarProps = { roles?: string[] }
+
+export function AdminSidebar({ roles = [] }: AdminSidebarProps) {
   const pathname = usePathname()
+
+  const isSuperAdmin = roles.includes('superadmin')
+  const isAdmin = roles.includes('admin')
+  const isEditor = roles.includes('editor')
+
+  // Filter sections and items based on role
+  const filtered = navigation
+    .map(section => {
+      let items = section.items
+      if (isSuperAdmin) return { ...section, items }
+      if (isAdmin) {
+        // Admin: Overview, E-commerce (4 pages), Customer Management (3 pages); hide System
+        if (section.title === 'System') return null
+        return { ...section, items }
+      }
+      if (isEditor) {
+        // Editor: only Products and Reviews
+        if (section.title === 'E-commerce') {
+          items = section.items.filter(i => i.title === 'Products')
+        } else if (section.title === 'Customer Management') {
+          items = section.items.filter(i => i.title === 'Reviews')
+        } else if (section.title === 'Overview' || section.title === 'System') {
+          return null
+        }
+        return { ...section, items }
+      }
+      return null
+    })
+    .filter(Boolean) as typeof navigation
 
   return (
     <Sidebar>
@@ -127,7 +158,7 @@ export function AdminSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {navigation.map((section) => (
+        {filtered.map((section) => (
           <SidebarGroup key={section.title}>
             <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
             <SidebarGroupContent>

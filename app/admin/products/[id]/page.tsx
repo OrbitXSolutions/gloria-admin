@@ -80,8 +80,8 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   const variants = product.variant_group ? await getProductVariants(product.variant_group, product.id) : []
 
   const formatPrice = (price: number | null) => {
-    if (!price) return "N/A"
-    const symbol = product.currency?.symbol_en || "$"
+    if (!price && price !== 0) return 'N/A'
+    const symbol = product.currency?.symbol_en || product.currency?.code || 'AED'
     return `${symbol}${price.toFixed(2)}`
   }
 

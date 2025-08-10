@@ -328,16 +328,16 @@ export function OrdersTableClient({
   };
 
   const priceFmt = (price: number | null, order?: Order) => {
-    if (price === null || price === undefined) return "$0.00";
-
+    if (price === null || price === undefined) return 'AED0.00'
     return formatPrice(
       price,
       {
         code: order?.order_items?.[0]?.product?.currency_code ?? 'AED',
+        symbol_en: 'AED'
       },
       'en'
-    );
-  };
+    )
+  }
 
   return (
     <Card>
@@ -528,7 +528,7 @@ export function OrdersTableClient({
                 const firstItem = order.order_items?.[0];
 
                 return (
-                  <Card key={order.id}>
+                  <Card key={order.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${order.code || order.id}`)}>
                     <CardContent className="pt-6">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between">
@@ -580,12 +580,19 @@ export function OrdersTableClient({
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
+                              <Button
+                                variant="ghost"
+                                className="h-11 w-11 p-0 relative z-10"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                }}
+                              >
                                 <span className="sr-only">Open menu</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()} className="z-20">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
                                 <Link href={`/admin/orders/${order.code || order.id}`}>
@@ -599,12 +606,12 @@ export function OrdersTableClient({
                                   Edit Order
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openStatusUpdateDialog(order)}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openStatusUpdateDialog(order) }}>
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Update Status
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                                 <Package className="mr-2 h-4 w-4" />
                                 Print Invoice
                               </DropdownMenuItem>
@@ -619,8 +626,8 @@ export function OrdersTableClient({
             )}
           </div>
         ) : (
-          // Desktop Table Layout
-          <div className="rounded-md border">
+          // Desktop Table Layout with horizontal scroll on small widths
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -645,7 +652,11 @@ export function OrdersTableClient({
                   </TableRow>
                 ) : (
                   orders.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow
+                      key={order.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/orders/${order.code || order.id}`)}
+                    >
                       <TableCell>
                         <div className="space-y-1">
                           <p className="font-medium">
@@ -724,12 +735,24 @@ export function OrdersTableClient({
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Button
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                              }}
+                            >
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent
+                            align="end"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                          >
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
                               <Link href={`/admin/orders/${order.code || order.id}`}>

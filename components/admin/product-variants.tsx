@@ -36,10 +36,10 @@ export function ProductVariants({ product, variants }: ProductVariantsProps) {
     );
   }
 
-  const formatPrice = (price: number | null) => {
-    if (!price) return "N/A";
-    return `$${price.toFixed(2)}`;
-  };
+  const fmt = (price: number | null) => {
+    if (!price && price !== 0) return 'N/A'
+    return `AED${price.toFixed(2)}`
+  }
 
   const getStockStatus = (quantity: number | null) => {
     if (!quantity || quantity === 0) {
@@ -91,7 +91,7 @@ export function ProductVariants({ product, variants }: ProductVariantsProps) {
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span>SKU: {product.sku || "N/A"}</span>
-                <span>Price: {formatPrice(product.price)}</span>
+                <span>Price: {fmt(product.price)}</span>
                 <Badge
                   variant={getStockStatus(product.quantity).variant}
                   className="text-xs"
@@ -139,7 +139,7 @@ export function ProductVariants({ product, variants }: ProductVariantsProps) {
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span>SKU: {variant.sku || "N/A"}</span>
-                    <span>Price: {formatPrice(variant.price)}</span>
+                    <span>Price: {fmt(variant.price)}</span>
                     <Badge
                       variant={getStockStatus(variant.quantity).variant}
                       className="text-xs"

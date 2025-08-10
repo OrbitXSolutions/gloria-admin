@@ -13,8 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useAction } from 'next-safe-action/hooks'
+import { logout } from '@/lib/actions/auth'
 
 export function AdminHeader() {
+  const { execute: execLogout, isExecuting } = useAction(logout)
+  function onLogout() { execLogout() }
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center gap-4 px-4">
@@ -47,8 +51,7 @@ export function AdminHeader() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">Admin User</p>
-                  <p className="text-xs leading-none text-muted-foreground">admin@eleva.com</p>
+                  <p className="text-sm font-medium leading-none">Account</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -60,7 +63,7 @@ export function AdminHeader() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={onLogout} disabled={isExecuting}>
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
