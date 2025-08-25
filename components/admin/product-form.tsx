@@ -1,147 +1,143 @@
 "use client";
 
+// Re-implemented ProductForm (phase 1): core sections, data loading, slug/meta automation, image selection & upload, submit.
+// Future phases: draft/save, dirty guards, granular role gating, variant orchestration, richer validation.
+
 import * as React from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, Save, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+
+import { ProductFormSchema, type ProductFormData } from "@/lib/validations/product";
+import { createProduct, updateProduct } from "@/lib/actions/products";
 import { useAction } from "next-safe-action/hooks";
+import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/lib/types/database.types";
+
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, Save, ArrowLeft, Plus } from "lucide-react";
-import { toast } from "sonner";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Combobox } from "@/components/ui/custom/combobox";
 import { InputWithPopupSelect } from "@/components/ui/custom/input-with-popup-select";
 import { KeywordsInput } from "@/components/ui/custom/keywords-input";
 import { AttributeInput } from "@/components/admin/attribute-input";
-import {
-  FileUpload,
-  FileUploadDropzone,
-  FileUploadTrigger,
-  FileUploadList,
-  FileUploadItem,
-  FileUploadItemPreview,
-  FileUploadItemMetadata,
-  FileUploadItemDelete,
-} from "@/components/ui/file-upload";
+import { FileUpload, FileUploadDropzone, FileUploadList } from "@/components/ui/file-upload";
 import { uploadFile, uploadFiles } from "@/lib/utils/upload";
 import { getProductImageUrl } from "@/lib/constants/supabase-storage";
-import {
-  ProductFormSchema,
-  type ProductFormData,
-} from "@/lib/validations/product";
-import { createProduct, updateProduct } from "@/lib/actions/products";
-import { createClient } from "@/lib/supabase/client";
-import type { Database } from "@/lib/types/database.types";
-import { useState } from "react";
 
+// Types from DB
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type Currency = Database["public"]["Tables"]["currencies"]["Row"];
 type Country = Database["public"]["Tables"]["countries"]["Row"];
 
-interface ProductFormProps {
-  product?: Product;
-  mode: "create" | "edit";
+export interface ProductFormProps { product?: Product; mode: "create" | "edit" }
+
+// Utility components kept inline for now (can be extracted later when stable)
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+  );
 }
 
 export function ProductForm({ product, mode }: ProductFormProps) {
-  const router = useRouter();
+  const supabase = createClient();
+  const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [variantGroups, setVariantGroups] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [allSlugs, setAllSlugs] = useState<Set<string>>(new Set());
+  const [allSlugsAr, setAllSlugsAr] = useState<Set<string>>(new Set());
+
+  // Image selection (local before upload)
+  const [primaryFile, setPrimaryFile] = useState<File | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [metaThumbFile, setMetaThumbFile] = useState<File | null>(null);
   const [uploadingPrimary, setUploadingPrimary] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
-  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadingMeta, setUploadingMeta] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // Local file storage before upload
-  const [selectedPrimaryImage, setSelectedPrimaryImage] = useState<File | null>(
-    null
-  );
-  const [selectedGalleryImages, setSelectedGalleryImages] = useState<File[]>(
-    []
-  );
-  const [selectedMetaThumbnail, setSelectedMetaThumbnail] =
-    useState<File | null>(null);
+  const draftFlag = useRef(false); // placeholder for future draft feature
 
-  const { execute: executeCreate, isExecuting: isCreating } = useAction(
-    createProduct,
-    {
-      onSuccess: () => {
-        toast.success("Product created successfully!");
-        router.push("/admin/products");
-      },
-      onError: ({ error }) => {
-        toast.error(error.serverError || "Failed to create product");
-      },
+  // Actions
+  const { execute: doCreate, isExecuting: creating } = useAction(createProduct, {
+    onSuccess: (res) => {
+      console.log("Create success", res);
+      toast.success("Product created");
+      setGlobalError(null);
+      // Clear transient media ONLY on success
+      setPrimaryFile(null); setGalleryFiles([]); setMetaThumbFile(null);
+    },
+    onError: ({ error }) => {
+      console.error("Create product error (safe-action)", error);
+      const msg = error.serverError || "Create failed";
+      setGlobalError(msg);
+      toast.error(msg);
     }
-  );
-
-  const { execute: executeUpdate, isExecuting: isUpdating } = useAction(
-    updateProduct,
-    {
-      onSuccess: () => {
-        toast.success("Product updated successfully!");
-        router.push("/admin/products");
-      },
-      onError: ({ error }) => {
-        toast.error(error.serverError || "Failed to update product");
-      },
+  });
+  const { execute: doUpdate, isExecuting: updating } = useAction(updateProduct, {
+    onSuccess: (res) => {
+      console.log("Update success", res);
+      toast.success("Product updated");
+      setGlobalError(null);
+      setPrimaryFile(null); setGalleryFiles([]); setMetaThumbFile(null);
+    },
+    onError: ({ error }) => {
+      console.error("Update product error (safe-action)", error);
+      const msg = error.serverError || "Update failed";
+      setGlobalError(msg);
+      toast.error(msg);
     }
-  );
+  });
+
+  // lightweight random slug (no uniqueness set yet) for default to avoid empty validation race
+  const initialRandomSlug = React.useMemo(() => {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let s = ""; for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }, []);
+
+  const initialRandomSku = React.useMemo(() => {
+    const n = Math.floor(Math.random() * 100000); // 0 - 99999
+    return `SKU${n.toString().padStart(5, "0")}`;
+  }, []);
 
   const form = useForm<ProductFormData>({
-    resolver: zodResolver(ProductFormSchema),
+    // Cast resolver to any to avoid transient type duplication issues and allow zod coercion
+    resolver: zodResolver(ProductFormSchema) as any,
     defaultValues: {
       name_en: product?.name_en || "",
       name_ar: product?.name_ar || "",
       description_en: product?.description_en || "",
       description_ar: product?.description_ar || "",
-      slug: product?.slug || "",
+      slug: product?.slug || initialRandomSlug,
       slug_ar: product?.slug_ar || "",
-      sku: product?.sku || "",
-      price: product?.price || 0,
-      old_price: product?.old_price || undefined,
-      quantity: product?.quantity || 0,
-      category_id: product?.category_id || undefined,
+      sku: product?.sku || initialRandomSku,
+      price: product?.price ?? 0,
+      old_price: product?.old_price ?? 0,
+      quantity: product?.quantity ?? 5,
+      category_id: product?.category_id as number | undefined,
+      // country set after fetch to first if not provided
       country_code: product?.country_code || "",
-      currency_code: product?.currency_code || "",
+      currency_code: product?.currency_code || "AED",
       variant_group: product?.variant_group || "",
-      keywords: product?.keywords
-        ? product.keywords.split(", ").filter(Boolean)
-        : [],
-      attributes:
-        typeof product?.attributes === "object" &&
-        !Array.isArray(product?.attributes) &&
-        product?.attributes !== null
-          ? product.attributes
-          : {},
-      attributes_ar:
-        typeof product?.attributes_ar === "object" &&
-        !Array.isArray(product?.attributes_ar) &&
-        product?.attributes_ar !== null
-          ? product.attributes_ar
-          : {},
+      keywords: product?.keywords ? product.keywords.split(", ").filter(Boolean) : [],
+      attributes: (product?.attributes && typeof product.attributes === "object" && !Array.isArray(product.attributes)) ? product.attributes : {},
+      attributes_ar: (product?.attributes_ar && typeof product.attributes_ar === "object" && !Array.isArray(product.attributes_ar)) ? product.attributes_ar : {},
       primary_image: product?.primary_image || "",
       images: product?.images || [],
       meta_title_en: product?.meta_title_en || "",
@@ -150,591 +146,374 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       meta_description_ar: product?.meta_description_ar || "",
       meta_thumbnail: product?.meta_thumbnail || "",
       admin_note: product?.admin_note || "",
-    },
+    }
   });
 
-  // Load dropdown data
-  React.useEffect(() => {
-    const loadData = async () => {
-      const supabase = createClient();
-
-      const [categoriesRes, currenciesRes, countriesRes, variantGroupsRes] =
-        await Promise.all([
-          supabase
-            .from("categories")
-            .select("*")
-            .eq("is_deleted", false)
-            .order("name_en"),
-          supabase.from("currencies").select("*").order("name_en"),
-          supabase.from("countries").select("*").order("name_en"),
-          supabase
-            .from("products")
-            .select("variant_group")
-            .eq("is_deleted", false)
-            .not("variant_group", "is", null)
-            .order("variant_group"),
+  // Data load
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cats, currs, couns, variants, slugs, userRes] = await Promise.all([
+          supabase.from("categories").select("*").eq("is_deleted", false).order("name_en") as any,
+          supabase.from("currencies").select("*").order("name_en") as any,
+          supabase.from("countries").select("*").order("name_en") as any,
+          supabase.from("products").select("variant_group").eq("is_deleted", false).not("variant_group", "is", null) as any,
+          supabase.from("products").select("slug, slug_ar").eq("is_deleted", false) as any,
+          supabase.auth.getUser()
         ]);
-
-      if (categoriesRes.data) setCategories(categoriesRes.data);
-      if (currenciesRes.data) setCurrencies(currenciesRes.data);
-      if (countriesRes.data) setCountries(countriesRes.data);
-
-      // Extract unique variant groups
-      if (variantGroupsRes.data) {
-        const uniqueVariantGroups = Array.from(
-          new Set(
-            variantGroupsRes.data
-              .map((item) => item.variant_group)
-              .filter(Boolean) as string[]
-          )
-        );
-        setVariantGroups(uniqueVariantGroups);
+        if (cancelled) return;
+        if (cats.data) setCategories(cats.data);
+        if (currs.data) setCurrencies(currs.data);
+        if (couns.data) setCountries(couns.data);
+        if (variants.data) setVariantGroups(Array.from(new Set((variants.data as any[]).map(v => (v as any).variant_group).filter(Boolean) as string[])));
+        if (slugs.data) {
+          const s = new Set<string>(); const sAr = new Set<string>();
+          (slugs.data as any[]).forEach((r: any) => { if (r.slug) s.add(r.slug); if (r.slug_ar) sAr.add(r.slug_ar); });
+          setAllSlugs(s); setAllSlugsAr(sAr);
+        }
+        const userId = userRes.data.user?.id;
+        if (userId) {
+          const rolesRes = await supabase.from("user_roles").select("roles(name)").eq("user_id", userId).eq("is_deleted", false);
+          if (rolesRes.data) setRoles((rolesRes.data as any[]).map(r => (r as any).roles?.name).filter(Boolean) as string[]);
+        }
+        // Set first country as default if none provided (create mode only)
+        if (!product && couns.data && couns.data.length && !form.getValues("country_code")) {
+          form.setValue("country_code", (couns.data[0] as any).code, { shouldDirty: false });
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed loading form data");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    })();
+    return () => { cancelled = true; };
+  }, [supabase]);
 
-      setLoading(false);
-    };
-
-    loadData();
+  // Random slug generation (max length 8) for EN & AR; independent uniqueness sets.
+  const generateRandomSlug = useCallback((existing: Set<string>, length = 8): string => {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    for (let attempt = 0; attempt < 500; attempt++) {
+      let s = "";
+      for (let i = 0; i < length; i++) s += chars[Math.floor(Math.random() * chars.length)];
+      if (!existing.has(s)) return s;
+    }
+    return (Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, length);
   }, []);
 
-  // Auto-generate slug from name
-  const watchNameEn = form.watch("name_en");
-  React.useEffect(() => {
-    if (watchNameEn && mode === "create") {
-      const slug = watchNameEn
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim();
-      form.setValue("slug", slug);
+  // Auto-generate English slug if not manually edited or invalid.
+  useEffect(() => {
+    const state = form.getFieldState("slug");
+    const current = form.getValues("slug");
+    if (state.isDirty && current && current.length === 8 && !allSlugs.has(current)) return;
+    if (!current || current.length !== 8 || allSlugs.has(current)) {
+      form.setValue("slug", generateRandomSlug(allSlugs), { shouldDirty: false });
     }
-  }, [watchNameEn, mode, form]);
+  }, [allSlugs, form, generateRandomSlug]);
 
-  // Auto-generate Arabic slug from Arabic name
-  const watchNameAr = form.watch("name_ar");
-  React.useEffect(() => {
-    if (watchNameAr && mode === "create") {
-      const slugAr = watchNameAr
-        .toLowerCase()
-        // Remove special characters except Arabic letters, numbers, spaces, and hyphens
-        .replace(
-          /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-z0-9\s-]/g,
-          ""
-        )
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim();
-      form.setValue("slug_ar", slugAr);
+  // Auto-generate Arabic slug similarly.
+  // Auto-generate SKU if user hasn't modified and field empty/invalid pattern
+  useEffect(() => {
+    const state = form.getFieldState("sku");
+    const current = form.getValues("sku");
+    if (product?.sku) return; // keep existing when editing
+    if (state.isDirty && current) return;
+    if (!current) form.setValue("sku", initialRandomSku, { shouldDirty: false });
+  }, [form, initialRandomSku, product?.sku]);
+  useEffect(() => {
+    const state = form.getFieldState("slug_ar");
+    const current = form.getValues("slug_ar");
+    if (state.isDirty && current && current.length === 8 && !allSlugsAr.has(current)) return;
+    if (!current || current.length !== 8 || allSlugsAr.has(current)) {
+      form.setValue("slug_ar", generateRandomSlug(allSlugsAr), { shouldDirty: false });
     }
-  }, [watchNameAr, mode, form]);
+  }, [allSlugsAr, form, generateRandomSlug]);
+
+  // Meta auto-fill (lightweight heuristic)
+  useEffect(() => {
+    const sub = form.watch(values => {
+      const v = values as ProductFormData;
+      const cat = categories.find(c => c.id === v.category_id);
+      const catName = cat?.name_en || "";
+      if (v.name_en && !v.meta_title_en) form.setValue("meta_title_en", `${v.name_en}${catName ? ` | ${catName}` : ""}`, { shouldDirty: false });
+      if (v.name_ar && !v.meta_title_ar) form.setValue("meta_title_ar", v.name_ar, { shouldDirty: false });
+      if (v.name_en && !v.meta_description_en) form.setValue("meta_description_en", `${v.name_en}${catName ? ` in ${catName}` : ""}`, { shouldDirty: false });
+      if (v.name_ar && !v.meta_description_ar) form.setValue("meta_description_ar", `${v.name_ar} متوفر الآن.`, { shouldDirty: false });
+      if (v.primary_image && !v.meta_thumbnail && !metaThumbFile) form.setValue("meta_thumbnail", v.primary_image, { shouldDirty: false });
+    });
+    return () => sub.unsubscribe();
+  }, [form, categories, metaThumbFile]);
+
+  const isSuperAdmin = roles.some(r => ["superadmin", "admin"].includes(r));
 
   const onSubmit = async (data: ProductFormData) => {
+    if (!data.primary_image && !primaryFile) { toast.error("Primary image required"); return; }
+    // Ensure slug exists & meets length requirement before send (handles fast early submit)
+    if (!data.slug || data.slug.length !== 8) {
+      const newSlug = generateRandomSlug(allSlugs);
+      form.setValue("slug", newSlug, { shouldDirty: false });
+      data.slug = newSlug;
+    }
+    if (!data.slug_ar) { // optional but keep stable random if empty
+      const newSlugAr = generateRandomSlug(allSlugsAr);
+      form.setValue("slug_ar", newSlugAr, { shouldDirty: false });
+      data.slug_ar = newSlugAr;
+    }
+    setGlobalError(null);
     try {
-      // Upload files before submitting
-      let finalData = { ...data };
-
-      // Upload primary image if selected
-      if (selectedPrimaryImage) {
-        setUploadingPrimary(true);
-        const primaryImagePath = await uploadFile(
-          selectedPrimaryImage,
-          "products"
-        );
-        finalData.primary_image = primaryImagePath;
-      }
-
-      // Upload gallery images if selected
-      if (selectedGalleryImages.length > 0) {
-        setUploadingGallery(true);
-        const galleryPaths = await uploadFiles(
-          selectedGalleryImages,
-          "products"
-        );
-        finalData.images = [...(finalData.images || []), ...galleryPaths];
-      }
-
-      // Upload meta thumbnail if selected
-      if (selectedMetaThumbnail) {
-        setUploadingThumbnail(true);
-        const metaThumbnailPath = await uploadFile(
-          selectedMetaThumbnail,
-          "products"
-        );
-        finalData.meta_thumbnail = metaThumbnailPath;
-      }
-
-      // Submit the form with uploaded file paths
-      if (mode === "create") {
-        executeCreate(finalData);
-      } else if (product) {
-        executeUpdate({ ...finalData, id: product.id });
-      }
-
-      // Clear selected files after successful submission
-      setSelectedPrimaryImage(null);
-      setSelectedGalleryImages([]);
-      setSelectedMetaThumbnail(null);
-    } catch (error) {
-      toast.error("Failed to upload files. Please try again.");
-      console.error("Upload error:", error);
+      let payload: ProductFormData = { ...data };
+      console.log("Submitting product payload (pre-upload)", payload);
+      if (primaryFile) { setUploadingPrimary(true); payload.primary_image = await uploadFile(primaryFile, "products"); }
+      if (galleryFiles.length) { setUploadingGallery(true); const paths = await uploadFiles(galleryFiles, "products"); payload.images = [...(payload.images || []), ...paths]; }
+      if (metaThumbFile) { setUploadingMeta(true); payload.meta_thumbnail = await uploadFile(metaThumbFile, "products"); }
+      console.log("Submitting product payload (post-upload paths)", payload);
+      if (mode === "create") doCreate(payload); else if (product) doUpdate({ ...payload, id: product.id });
+      draftFlag.current = false;
+    } catch (e: any) {
+      console.error(e);
+      const msg = typeof e?.message === "string" ? e.message : "Save failed";
+      setGlobalError(msg);
+      toast.error(msg);
     } finally {
-      setUploadingPrimary(false);
-      setUploadingGallery(false);
-      setUploadingThumbnail(false);
+      setUploadingPrimary(false); setUploadingGallery(false); setUploadingMeta(false);
     }
   };
 
-  const isSubmitting =
-    isCreating ||
-    isUpdating ||
-    uploadingPrimary ||
-    uploadingGallery ||
-    uploadingThumbnail;
+  const isSubmitting = creating || updating || uploadingPrimary || uploadingGallery || uploadingMeta;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  // Option data for selectors
+  const categoryOptions = categories.map(c => ({ value: c.id.toString(), label: c.name_en || "Unnamed", description: c.name_ar || undefined }));
+  const countryOptions = countries.map(c => ({ value: c.code, label: c.name_en, description: c.name_ar || undefined }));
+  const currencyOptions = currencies.map(c => ({ value: c.code, label: c.code, description: c.symbol_en || c.symbol_ar || "" }));
 
-  const categoryOptions = categories.map((category) => ({
-    value: category.id.toString(),
-    label: category.name_en || "Unnamed Category",
-    description: category.name_ar ?? undefined,
-  }));
-
-  const currencyOptions = currencies.map((currency) => ({
-    value: currency.code,
-    label: `${currency.code}`,
-    description: `${currency.symbol_en || currency.symbol_ar || ""}`,
-  }));
-
-  const countryOptions = countries.map((country) => ({
-    value: country.code,
-    label: country.name_en,
-    description: country.name_ar ?? undefined,
-  }));
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 w-full">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/admin/products">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Products
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {mode === "create" ? "Create Product" : "Edit Product"}
-            </h1>
-            <p className="text-muted-foreground">
-              {mode === "create"
-                ? "Add a new product to your store"
-                : `Editing: ${product?.name_en || "Unnamed Product"}`}
-            </p>
-          </div>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/admin/products"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{mode === "create" ? "Create Product" : `Edit: ${product?.name_en || "Product"}`}</h1>
+          <p className="text-muted-foreground text-sm">Fill product details then save.</p>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          {globalError && (
+            <div className="rounded-md border border-red-400 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <strong className="font-medium mr-2">Error:</strong>{globalError}
+            </div>
+          )}
           <div className="grid gap-6 lg:grid-cols-3">
-            {/* Basic Information */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Basic Information</CardTitle>
-                <CardDescription>
-                  Essential product details and descriptions
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Product Names */}
+            {/* Left content (main) */}
+            <div className="space-y-6 lg:col-span-2">
+              <Section title="Basic Information" description="Names, descriptions, category, pricing & media">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name_en"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Name (English) *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter product name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="name_ar"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Name (Arabic)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="أدخل اسم المنتج"
-                            {...field}
-                            dir="rtl"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="primary_image"
-                  render={({ field }) => (
+                  <FormField control={form.control} name="name_en" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Primary Image</FormLabel>
-                      <FormControl>
-                        <FileUpload
-                          accept="image/*"
-                          maxFiles={1}
-                          maxSize={5 * 1024 * 1024} // 5MB
-                          onAccept={(files) => {
-                            const file = files[0];
-                            if (file) {
-                              setSelectedPrimaryImage(file);
-                              toast.success("Primary image selected!");
-                            }
-                          }}
-                        >
-                          <FileUploadDropzone>
-                            <div className="flex flex-col items-center gap-2 text-center">
-                              <div className="text-sm text-muted-foreground">
-                                {selectedPrimaryImage ? (
-                                  <div className="space-y-2">
-                                    <img
-                                      src={URL.createObjectURL(
-                                        selectedPrimaryImage
-                                      )}
-                                      alt="Selected primary image"
-                                      className="h-32 w-32 object-cover rounded-lg mx-auto"
-                                    />
-                                    <p>Selected: {selectedPrimaryImage.name}</p>
-                                    <p className="text-xs">
-                                      Click to replace primary image
-                                    </p>
-                                  </div>
-                                ) : field.value ? (
-                                  <div className="space-y-2">
-                                    <div className="relative inline-block">
-                                      <img
-                                        src={getProductImageUrl(field.value)}
-                                        alt="Current primary image"
-                                        className="h-32 w-32 object-cover rounded-lg mx-auto"
-                                      />
-                                      {mode === "edit" && (
-                                        <Button
-                                          type="button"
-                                          variant="destructive"
-                                          size="sm"
-                                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                                          onClick={() => {
-                                            field.onChange("");
-                                            toast.success(
-                                              "Primary image removed"
-                                            );
-                                          }}
-                                        >
-                                          ×
-                                        </Button>
-                                      )}
-                                    </div>
-                                    <p>Current primary image</p>
-                                    <p className="text-xs">
-                                      Click to replace primary image
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <p>
-                                      Drop your primary image here, or click to
-                                      browse
-                                    </p>
-                                    <p className="text-xs">
-                                      PNG, JPG, WEBP up to 5MB
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </FileUploadDropzone>
-                          <FileUploadList>
-                            {/* File upload list will show selected files */}
-                          </FileUploadList>
-                        </FileUpload>
-                      </FormControl>
-                      <FormDescription>
-                        This image will be used as the main product photo
-                      </FormDescription>
+                      <FormLabel>Name (EN)*</FormLabel>
+                      <FormControl><Input placeholder="English name" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-                {/* Descriptions */}
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="description_en"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (English)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Enter product description"
-                            className="min-h-[100px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="description_ar"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Arabic)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="أدخل وصف المنتج"
-                            className="min-h-[100px]"
-                            dir="rtl"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  )} />
+                  <FormField control={form.control} name="name_ar" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name (AR)</FormLabel>
+                      <FormControl><Input placeholder="الاسم" dir="rtl" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
+                <FormField control={form.control} name="description_en" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (EN)</FormLabel>
+                    <FormControl><Textarea placeholder="Longer English description" className="min-h-[100px]" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="description_ar" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (AR)</FormLabel>
+                    <FormControl><Textarea placeholder="الوصف" dir="rtl" className="min-h-[100px]" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                {/* Category full row */}
+                <FormField control={form.control} name="category_id" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category *</FormLabel>
+                    <FormControl>
+                      <Combobox
+                        options={categoryOptions}
+                        value={field.value ? String(field.value) : undefined}
+                        onValueChange={(val) => field.onChange(val ? Number(val) : undefined)}
+                        placeholder="Select category..."
+                        searchPlaceholder="Search categories..."
+                        emptyText="No categories"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <Separator />
-
-                {/* SKU and Slugs */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="sku"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SKU *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="PROD-001" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Unique product identifier
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="slug"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>URL Slug (English) *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="product-name" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Auto-generated from name
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="slug_ar"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>URL Slug (Arabic)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="اسم-المنتج"
-                            {...field}
-                            dir="rtl"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pricing and Inventory */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Pricing & Inventory</CardTitle>
-                <CardDescription>Set pricing and stock levels</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
+                {/* Pricing grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <FormField control={form.control} name="price" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Price *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              Number.parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </FormControl>
+                      <FormControl><Input type="number" step="0.01" {...field} value={field.value === undefined ? "" : field.value} onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))} /></FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="old_price"
-                  render={({ field }) => (
+                    </FormItem>)} />
+                  <FormField control={form.control} name="old_price" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Compare at Price</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              Number.parseFloat(e.target.value) || undefined
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Original price for discount display
-                      </FormDescription>
+                      <FormLabel>Old Price</FormLabel>
+                      <FormControl><Input type="number" step="0.01" {...field} value={field.value === undefined ? "" : field.value} onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))} /></FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="quantity"
-                  render={({ field }) => (
+                    </FormItem>)} />
+                  <FormField control={form.control} name="quantity" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock Quantity *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number.parseInt(e.target.value) || 0)
-                          }
-                        />
-                      </FormControl>
+                      <FormLabel>Quantity *</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value === undefined ? "" : field.value} onChange={e => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))} /></FormControl>
+                      <FormMessage />
+                    </FormItem>)} />
+                  <FormField control={form.control} name="sku" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SKU</FormLabel>
+                      <FormControl><Input placeholder="Optional SKU" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Category and Location */}
-            <Card className="lg:col-span-2 ">
-              <CardHeader>
-                <CardTitle>Category & Location</CardTitle>
-                <CardDescription>
-                  Organize and localize your product
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="category_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category *</FormLabel>
-                        <FormControl>
-                          <Combobox
-                            options={categoryOptions}
-                            value={field.value?.toString()}
-                            onValueChange={(value) =>
-                              field.onChange(Number.parseInt(value))
-                            }
-                            placeholder="Select category..."
-                            searchPlaceholder="Search categories..."
-                            emptyText="No categories found."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="country_code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country *</FormLabel>
-                        <FormControl>
-                          <Combobox
-                            options={countryOptions}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select country..."
-                            searchPlaceholder="Search countries..."
-                            emptyText="No countries found."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="currency_code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Currency *</FormLabel>
-                        <FormControl>
-                          <Combobox
-                            options={currencyOptions}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select currency..."
-                            searchPlaceholder="Search currencies..."
-                            emptyText="No currencies found."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  )} />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="variant_group"
-                  render={({ field }) => (
+                {/* Primary image full row */}
+                <FormField control={form.control} name="primary_image" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Primary Image *</FormLabel>
+                    <FormControl>
+                      <FileUpload accept="image/*" maxFiles={1} maxSize={5 * 1024 * 1024} onAccept={(files) => { const f = files[0]; if (f) { setPrimaryFile(f); toast.success("Primary image selected"); } }}>
+                        <FileUploadDropzone>
+                          <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                            {primaryFile ? (
+                              <>
+                                <img src={URL.createObjectURL(primaryFile)} alt="Primary preview" className="h-32 w-32 object-cover rounded" />
+                                <p>{primaryFile.name}</p>
+                              </>
+                            ) : field.value ? (
+                              <>
+                                <img src={getProductImageUrl(field.value)} alt="Existing primary" className="h-32 w-32 object-cover rounded" />
+                                <p>Current image</p>
+                              </>
+                            ) : (
+                              <>
+                                <p>Drop or click to select</p>
+                                <p className="text-xs">PNG/JPG/WEBP up to 5MB</p>
+                              </>
+                            )}
+                          </div>
+                        </FileUploadDropzone>
+                        <FileUploadList />
+                      </FileUpload>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {/* Gallery full row */}
+                <FormField control={form.control} name="images" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gallery Images</FormLabel>
+                    <FormControl>
+                      <FileUpload accept="image/*" multiple maxFiles={10} maxSize={5 * 1024 * 1024} onAccept={(files) => { setGalleryFiles(prev => [...prev, ...files]); toast.success(`${files.length} gallery image(s) added`); }}>
+                        <FileUploadDropzone>
+                          <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                            <p>Drop or click to add</p>
+                            <p className="text-xs">Up to 10 images</p>
+                          </div>
+                        </FileUploadDropzone>
+                        <FileUploadList orientation="horizontal" />
+                      </FileUpload>
+                    </FormControl>
+                    {(galleryFiles.length > 0 || (field.value && field.value.length > 0)) && (
+                      <div className="mt-2 space-y-2">
+                        {galleryFiles.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2">
+                            {galleryFiles.map((f, i) => (
+                              <div key={i} className="relative group">
+                                <img src={URL.createObjectURL(f)} alt={f.name} className="h-20 w-full object-cover rounded" />
+                                <button type="button" onClick={() => setGalleryFiles(galleryFiles.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white text-xs opacity-0 group-hover:opacity-100 transition" aria-label="Remove">×</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {field.value && field.value.length > 0 && (
+                          <div>
+                            <p className="text-xs mb-1 text-muted-foreground">Existing:</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {field.value.map((img, i) => (
+                                <img key={i} src={getProductImageUrl(img)} alt={img} className="h-20 w-full object-cover rounded" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {mode === "create" && (
+                  <div className="flex justify-end pt-2">
+                    <Button type="submit" variant="secondary" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Product
+                    </Button>
+                  </div>
+                )}
+              </Section>
+
+              {/* Pricing section removed - merged into Basic Information */}
+
+              <Section title="Classification" description="Country, currency & variants">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="country_code" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country *</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={countryOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select country..."
+                          searchPlaceholder="Search countries..."
+                          emptyText="No countries"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="currency_code" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Currency *</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={currencyOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select currency..."
+                          searchPlaceholder="Search currencies..."
+                          emptyText="No currencies"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="mt-4">
+                  <FormField control={form.control} name="variant_group" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Variant Group</FormLabel>
                       <FormControl>
@@ -742,496 +521,168 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                           value={field.value}
                           onValueChange={field.onChange}
                           suggestions={variantGroups}
-                          placeholder="Type variant group name or select existing..."
-                          selectPlaceholder="Select existing group"
-                          searchPlaceholder="Search variant groups..."
-                          emptyText="No variant groups found."
+                          placeholder="Type or pick group"
+                          selectPlaceholder="Existing groups"
+                          searchPlaceholder="Search groups..."
+                          emptyText="No groups"
                         />
                       </FormControl>
-                      <FormDescription>
-                        Group products as variants by using the same variant
-                        group name. You can type a new name or select an
-                        existing one.
-                      </FormDescription>
+                      <FormDescription>Same group name links products as variants.</FormDescription>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+                  )} />
+                </div>
+              </Section>
 
-            {/* Keywords */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Keywords</CardTitle>
-                <CardDescription>SEO and search keywords</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="keywords"
-                  render={({ field }) => (
+              <Section title="Attributes" description="Bilingual attribute key/value pairs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField control={form.control} name="attributes" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Search Keywords</FormLabel>
+                      <FormLabel>Attributes (EN)</FormLabel>
                       <FormControl>
-                        <KeywordsInput
-                          value={field.value || []}
-                          onChange={field.onChange}
-                          placeholder="Add keywords for better search..."
-                        />
+                        <AttributeInput language="en" value={field.value ?? null} onChange={field.onChange} label="" />
                       </FormControl>
-                      <FormDescription>
-                        Keywords help customers find your product
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Gallery Images */}
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Product Gallery</CardTitle>
-                <CardDescription>
-                  Additional product images for the gallery
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="images"
-                  render={({ field }) => (
+                  )} />
+                  <FormField control={form.control} name="attributes_ar" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Gallery Images</FormLabel>
+                      <FormLabel>Attributes (AR)</FormLabel>
                       <FormControl>
-                        <FileUpload
-                          accept="image/*"
-                          maxFiles={10}
-                          maxSize={5 * 1024 * 1024} // 5MB
-                          multiple
-                          onAccept={(files) => {
-                            setSelectedGalleryImages((prev) => [
-                              ...prev,
-                              ...files,
-                            ]);
-                            toast.success(
-                              `${files.length} image(s) selected for gallery!`
-                            );
-                          }}
-                        >
-                          <FileUploadDropzone>
-                            <div className="flex flex-col items-center gap-2 text-center">
-                              <div className="text-sm text-muted-foreground">
-                                <>
-                                  <p>Drop images here, or click to browse</p>
-                                  <p className="text-xs">
-                                    PNG, JPG, WEBP up to 5MB each (max 10
-                                    images)
-                                  </p>
-                                </>
-                              </div>
-                            </div>
-                          </FileUploadDropzone>
-                          <FileUploadList orientation="horizontal" />
-                        </FileUpload>
+                        <AttributeInput language="ar" value={field.value ?? null} onChange={field.onChange} label="" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </Section>
 
-                      {/* Show selected gallery images */}
-                      {selectedGalleryImages.length > 0 && (
-                        <div className="mt-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium">
-                              Selected Gallery Images (
-                              {selectedGalleryImages.length}):
-                            </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedGalleryImages([]);
-                                toast.success("All selected images cleared");
-                              }}
-                            >
-                              Clear all selected
-                            </Button>
+              <Section title="Admin Notes">
+                <FormField control={form.control} name="admin_note" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Internal Notes</FormLabel>
+                    <FormControl><Textarea className="min-h-[80px]" placeholder="Only visible to admins" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </Section>
+
+              {/* SEO now visible to all users (role gating removed) */}
+              <Section title="SEO & Metadata" description="Titles, descriptions & meta thumbnail">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="meta_title_en" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Title (EN)</FormLabel>
+                      <FormControl><Input placeholder="SEO title" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="meta_title_ar" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Title (AR)</FormLabel>
+                      <FormControl><Input placeholder="عنوان" dir="rtl" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="meta_description_en" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Description (EN)</FormLabel>
+                      <FormControl><Textarea className="min-h-[80px]" placeholder="Search snippet" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="meta_description_ar" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Description (AR)</FormLabel>
+                      <FormControl><Textarea dir="rtl" className="min-h-[80px]" placeholder="وصف" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <FormField control={form.control} name="meta_thumbnail" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meta Thumbnail</FormLabel>
+                    <FormControl>
+                      <FileUpload accept="image/*" maxFiles={1} maxSize={2 * 1024 * 1024} onAccept={(files) => { const f = files[0]; if (f) { setMetaThumbFile(f); toast.success("Meta thumbnail selected"); } }}>
+                        <FileUploadDropzone>
+                          <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                            {metaThumbFile ? (
+                              <>
+                                <img src={URL.createObjectURL(metaThumbFile)} alt="Meta thumbnail" className="h-24 w-24 object-cover rounded" />
+                                <p>{metaThumbFile.name}</p>
+                              </>
+                            ) : field.value ? (
+                              <>
+                                <img src={getProductImageUrl(field.value)} alt="Existing meta thumbnail" className="h-24 w-24 object-cover rounded" />
+                                <p>Current thumbnail</p>
+                              </>
+                            ) : (
+                              <>
+                                <p>Drop or click to select</p>
+                                <p className="text-xs">PNG/JPG/WEBP up to 2MB</p>
+                              </>
+                            )}
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            {selectedGalleryImages.map((file, index) => (
-                              <div key={index} className="relative group">
-                                <img
-                                  src={URL.createObjectURL(file)}
-                                  alt={`Selected gallery image ${index + 1}`}
-                                  className="w-full h-24 object-cover rounded-lg"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => {
-                                    setSelectedGalleryImages((prev) =>
-                                      prev.filter((_, i) => i !== index)
-                                    );
-                                  }}
-                                >
-                                  ×
-                                </Button>
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
-                                  {file.name}
-                                </div>
-                                <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
-                                  NEW
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                        </FileUploadDropzone>
+                        <FileUploadList />
+                      </FileUpload>
+                    </FormControl>
+                    <FormDescription>Used for social sharing (approx 1200x630).</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="keywords" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Keywords</FormLabel>
+                    <FormControl><KeywordsInput value={field.value || []} onChange={field.onChange} placeholder="Add keyword" /></FormControl>
+                    <FormDescription>Improves internal and external search.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </Section>
 
-                      {/* Show existing images */}
-                      {field.value && field.value.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm font-medium mb-2">
-                            Current Gallery Images ({field.value.length}):
-                          </p>
-                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            {field.value.map((imagePath, index) => (
-                              <div key={index} className="relative group">
-                                <img
-                                  src={getProductImageUrl(imagePath)}
-                                  alt={`Gallery image ${index + 1}`}
-                                  className="w-full h-24 object-cover rounded-lg"
-                                />
-                                {mode === "edit" && (
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => {
-                                      const newImages =
-                                        field.value?.filter(
-                                          (_, i) => i !== index
-                                        ) || [];
-                                      field.onChange(newImages);
-                                      toast.success("Gallery image removed");
-                                    }}
-                                  >
-                                    ×
-                                  </Button>
-                                )}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
-                                  {imagePath}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <FormDescription>
-                        Upload multiple images to showcase your product from
-                        different angles
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Product Attributes - Updated to handle both English and Arabic */}
-            <div className="lg:col-span-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="attributes"
-                  render={({ field }) => (
+              {/* Slugs moved to end for clarity */}
+              <Section title="Slugs" description="Auto-generated 8 character identifiers. You can override if needed.">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="slug" render={({ field }) => (
                     <FormItem>
-                      <FormControl>
-                        <AttributeInput
-                          value={field.value ?? null}
-                          onChange={field.onChange}
-                          language="en"
-                          label="Product Attributes (English)"
-                        />
-                      </FormControl>
+                      <FormLabel>Slug (EN)*</FormLabel>
+                      <FormControl><Input placeholder="auto" maxLength={8} {...field} /></FormControl>
+                      <FormDescription>English identifier (8 chars)</FormDescription>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="attributes_ar"
-                  render={({ field }) => (
+                  )} />
+                  <FormField control={form.control} name="slug_ar" render={({ field }) => (
                     <FormItem>
-                      <FormControl>
-                        <AttributeInput
-                          value={field.value ?? null}
-                          onChange={field.onChange}
-                          language="ar"
-                          label="Product Attributes (Arabic)"
-                        />
-                      </FormControl>
+                      <FormLabel>Slug (AR)</FormLabel>
+                      <FormControl><Input placeholder="تلقائي" dir="rtl" maxLength={8} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </div>
+                  )} />
+                </div>
+              </Section>
             </div>
 
-            {/* SEO & Meta */}
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>SEO & Metadata</CardTitle>
-                <CardDescription>
-                  Optimize for search engines and social sharing
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="meta_title_en"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Title (English)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="SEO title for search engines"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="meta_title_ar"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Title (Arabic)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="عنوان SEO لمحركات البحث"
-                            {...field}
-                            dir="rtl"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="meta_description_en"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Description (English)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Brief description for search results"
-                            className="min-h-[80px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="meta_description_ar"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meta Description (Arabic)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="وصف مختصر لنتائج البحث"
-                            className="min-h-[80px]"
-                            dir="rtl"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="meta_thumbnail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Meta Thumbnail</FormLabel>
-                      <FormControl>
-                        <FileUpload
-                          accept="image/*"
-                          maxFiles={1}
-                          maxSize={2 * 1024 * 1024} // 2MB for social media
-                          onAccept={(files) => {
-                            const file = files[0];
-                            if (file) {
-                              setSelectedMetaThumbnail(file);
-                              toast.success("Meta thumbnail selected!");
-                            }
-                          }}
-                        >
-                          <FileUploadDropzone>
-                            <div className="flex flex-col items-center gap-2 text-center">
-                              <div className="text-sm text-muted-foreground">
-                                {selectedMetaThumbnail ? (
-                                  <div className="space-y-2">
-                                    <img
-                                      src={URL.createObjectURL(
-                                        selectedMetaThumbnail
-                                      )}
-                                      alt="Selected meta thumbnail"
-                                      className="h-24 w-24 object-cover rounded-lg mx-auto"
-                                    />
-                                    <p>
-                                      Selected: {selectedMetaThumbnail.name}
-                                    </p>
-                                    <p className="text-xs">
-                                      Click to replace meta thumbnail
-                                    </p>
-                                  </div>
-                                ) : field.value ? (
-                                  <div className="space-y-2">
-                                    <div className="relative inline-block">
-                                      <img
-                                        src={getProductImageUrl(field.value)}
-                                        alt="Current meta thumbnail"
-                                        className="h-24 w-24 object-cover rounded-lg mx-auto"
-                                      />
-                                      {mode === "edit" && (
-                                        <Button
-                                          type="button"
-                                          variant="destructive"
-                                          size="sm"
-                                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                                          onClick={() => {
-                                            field.onChange("");
-                                            toast.success(
-                                              "Meta thumbnail removed"
-                                            );
-                                          }}
-                                        >
-                                          ×
-                                        </Button>
-                                      )}
-                                    </div>
-                                    <p>Current meta thumbnail</p>
-                                    <p className="text-xs">
-                                      Click to replace meta thumbnail
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <p>
-                                      Drop meta thumbnail here, or click to
-                                      browse
-                                    </p>
-                                    <p className="text-xs">
-                                      PNG, JPG, WEBP up to 2MB (optimized for
-                                      social media)
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </FileUploadDropzone>
-                          <FileUploadList>
-                            {/* File upload list will show selected files */}
-                          </FileUploadList>
-                        </FileUpload>
-                      </FormControl>
-                      <FormDescription>
-                        Image for social media sharing (recommended: 1200x630px)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Admin Notes */}
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Admin Notes</CardTitle>
-                <CardDescription>
-                  Internal notes for administrative purposes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="admin_note"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Internal Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Add any internal notes about this product..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        These notes are only visible to administrators
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+            {/* Right sidebar now empty (reserved for future: status, analytics, etc.) */}
+            <div className="space-y-6" />
           </div>
 
-          {/* Submit Button */}
-          <div className="flex items-center justify-end gap-4 pt-6 border-t">
-            {/* Show pending uploads indicator */}
-            {(selectedPrimaryImage ||
-              selectedGalleryImages.length > 0 ||
-              selectedMetaThumbnail) && (
-              <div className="flex items-center gap-2 text-sm text-amber-600">
-                <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                <span>
-                  {[
-                    selectedPrimaryImage && "Primary image",
-                    selectedGalleryImages.length > 0 &&
-                      `${selectedGalleryImages.length} gallery image(s)`,
-                    selectedMetaThumbnail && "Meta thumbnail",
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}{" "}
-                  ready to upload
-                </span>
+          <div className="flex items-center justify-end gap-4 pt-4 border-t">
+            {(primaryFile || galleryFiles.length || metaThumbFile) && (
+              <div className="flex items-center gap-2 text-xs text-amber-600">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>New media ready to upload</span>
               </div>
             )}
-
-            <Button variant="outline" asChild>
+            <Button variant="outline" type="button" asChild>
               <Link href="/admin/products">Cancel</Link>
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />
-              {uploadingPrimary || uploadingGallery || uploadingThumbnail
-                ? "Uploading Images..."
-                : mode === "create"
-                ? "Create Product"
-                : "Update Product"}
+              {uploadingPrimary || uploadingGallery || uploadingMeta ? "Uploading..." : mode === "create" ? "Create Product" : "Update Product"}
             </Button>
           </div>
         </form>
