@@ -155,6 +155,12 @@ importers:
       sonner:
         specifier: ^2.0.5
         version: 2.0.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      sweetalert2:
+        specifier: ^11.12.4
+        version: 11.22.5
+      sweetalert2-react-content:
+        specifier: ^5.0.7
+        version: 5.1.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sweetalert2@11.22.5)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
@@ -1526,6 +1532,16 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
+
+  sweetalert2-react-content@5.1.0:
+    resolution: {integrity: sha512-SBh41SdyHDY9NzwrIG6LACbClCMxIlEFP86tGVr/B4zGD4H2gGXB8o7UAJRc/RtBd/iQL9hIvuCAkrk0AgKEMA==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+      sweetalert2: ^11.0.0
+
+  sweetalert2@11.22.5:
+    resolution: {integrity: sha512-k9gb2M0n4b830FaWDmqaFQULIRvKixTbJOBkTN5KwRNIT8UxjGxusC9g67cj8sCxkJb9nVy2+PgyVd7vYK7cug==}
 
   tailwind-merge@3.3.1:
     resolution: {integrity: sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g==}
@@ -2910,6 +2926,14 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.1.0
+
+  sweetalert2-react-content@5.1.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sweetalert2@11.22.5):
+    dependencies:
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
+      sweetalert2: 11.22.5
+
+  sweetalert2@11.22.5: {}
 
   tailwind-merge@3.3.1: {}
 

@@ -55,12 +55,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -221,29 +215,7 @@ export function ProductsTableClient({
       ? `${(cur?.symbol_en || cur?.code || 'AED')}${price.toFixed(2)}`
       : "N/A";
 
-  const renderColor = (attrs: Product["attributes"]) => {
-    const color =
-      attrs && typeof attrs === "object" && "color" in attrs
-        ? (attrs as any).color
-        : null;
-    if (!color || typeof color !== "object") return null;
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className="h-4 w-4 rounded-full border border-border"
-              style={{ backgroundColor: color.hex }}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{color.name}</p>
-            <p className="text-xs text-muted-foreground">{color.hex}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
+  // Attributes column removed from desktop table; attribute badges still shown in mobile cards.
 
   return (
     <Card>
@@ -547,7 +519,6 @@ export function ProductsTableClient({
                 <TableRow>
                   <TableHead className="w-[90px]">Image</TableHead>
                   <SortableHeader column="name">Details</SortableHeader>
-                  <TableHead>Attributes</TableHead>
                   <SortableHeader column="price">Price</SortableHeader>
                   <SortableHeader column="quantity">Stock</SortableHeader>
                   <TableHead>Variants</TableHead>
@@ -558,7 +529,7 @@ export function ProductsTableClient({
               <TableBody>
                 {products.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {hasActiveFilters
                           ? "No products found matching your filters."
@@ -599,15 +570,6 @@ export function ProductsTableClient({
                           <p className="mt-1 text-xs text-muted-foreground">
                             SKU: {p.sku ?? "—"}
                           </p>
-                        </TableCell>
-                        <TableCell className="max-w-[160px]">
-                          <div className="flex items-center gap-1">
-                            {renderColor(p.attributes)}
-                            <ProductAttributesCompact
-                              attributes={p.attributes as any}
-                              maxItems={2}
-                            />
-                          </div>
                         </TableCell>
                         <TableCell>
                           <p>{priceFmt(p.price, p.currency)}</p>

@@ -130,6 +130,8 @@ export function AdminSidebar({ roles = [] }: AdminSidebarProps) {
       if (isAdmin) {
         // Admin: Overview, E-commerce (4 pages), Customer Management (3 pages); hide System
         if (section.title === 'System') return null
+        // Hide Invoices for non-superadmin roles
+        items = items.filter(i => i.title !== 'Invoices')
         return { ...section, items }
       }
       if (isEditor) {

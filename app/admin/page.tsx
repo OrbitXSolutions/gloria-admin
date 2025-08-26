@@ -189,73 +189,95 @@ async function DashboardContent() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {stats.recentOrders.map((order: any) => (
-              <Link key={order.id} href={`/admin/orders/${order.code || order.id}`} className="flex items-center  flex-wrap justify-between p-4 border rounded-lg hover:bg-accent/20 transition-colors">
-                <div className="flex items-center space-x-4 flex-wrap">
-                  <div className="flex -space-x-2">
-                    {order.order_items?.slice(0, 3).map((item: any, index: number) => (
-                      <div
-                        key={index}
-                        className="relative h-10 w-10 rounded border-2 border-background overflow-hidden"
-                      >
-                        <Image
-                          src={getProductImageUrl(item.product?.primary_image) || "/placeholder.svg"}
-                          alt={item.product?.name_en || "Product"}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ))}
-                    {(order.order_items?.length || 0) > 3 && (
-                      <div className="flex h-10 w-10 items-center justify-center rounded border-2 border-background bg-muted text-xs font-medium">
-                        +{(order.order_items?.length || 0) - 3}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">Order #{order.code || order.id}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.user?.first_name} {order.user?.last_name} •{" "}
-                      {order.created_at && formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between flex-wrap space-x-4 flex-1">
-                  <div className="flex-1">
-                    <Badge className={getStatusColor(order.status || "pending")}>{order.status || "pending"}</Badge>
-                  </div>
-                  <div className="flex">
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {formatPrice(
-                          order.total_price,
-                          {
-                            code: order.order_items?.[0]?.product?.currency_code,
-                          },
-                          'en'
-                        )}
-                      </p>
-                      {order.shipping && order.shipping > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          incl. shipping
-                        </p>
-                      )}
-                      <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
-                    </div>
-                    <div >
-                      <Button
-                        variant="ghost" size="icon" asChild>
-                        <Link href={`/admin/orders/${order.code || order.id}`}>
-                          <Eye className="h-4 w-4" />
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  <th className="px-4 py-3 font-medium">Order</th>
+                  <th className="px-4 py-3 font-medium">Customer</th>
+                  <th className="px-4 py-3 font-medium">Items</th>
+                  <th className="px-4 py-3 font-medium">Total</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentOrders.map((order: any) => {
+                  const itemsCount = order.order_items?.length || 0
+                  return (
+                    <tr
+                      key={order.id}
+                      className="group border-t hover:bg-accent/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 align-top min-w-[160px]">
+                        <Link href={`/admin/orders/${order.code || order.id}`} className="font-medium hover:underline">
+                          #{order.code || order.id}
                         </Link>
-                      </Button>
-                    </div>
-
-                  </div>
-                </div>
-              </Link>
-            ))}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {order.created_at && formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        <div className="font-medium">
+                          {order.user?.first_name} {order.user?.last_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{order.user?.email}</div>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2">
+                            {order.order_items?.slice(0, 3).map((item: any, index: number) => (
+                              <div key={index} className="relative h-8 w-8 rounded border bg-muted overflow-hidden">
+                                <Image
+                                  src={getProductImageUrl(item.product?.primary_image) || '/placeholder.svg'}
+                                  alt={item.product?.name_en || 'Product'}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ))}
+                            {itemsCount > 3 && (
+                              <div className="flex h-8 w-8 items-center justify-center rounded border bg-muted text-[10px] font-medium">
+                                +{itemsCount - 3}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground max-w-[140px] truncate">
+                            {order.order_items?.[0]?.product?.name_en}
+                            {itemsCount > 1 && ` +${itemsCount - 1} more`}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        <div className="font-medium">
+                          {formatPrice(order.total_price, { code: order.order_items?.[0]?.product?.currency_code }, 'en')}
+                        </div>
+                        {order.shipping && order.shipping > 0 && (
+                          <div className="text-[10px] text-muted-foreground">incl. shipping</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <Badge className={getStatusColor(order.status || 'pending')}>{order.status || 'pending'}</Badge>
+                      </td>
+                      <td className="px-4 py-3 align-top text-right">
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link href={`/admin/orders/${order.code || order.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {stats.recentOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      No recent orders
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

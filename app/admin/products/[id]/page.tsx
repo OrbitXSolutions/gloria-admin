@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Edit, Trash2, DollarSign, Warehouse, Tag } from "lucide-react"
+import { ArrowLeft, Edit, DollarSign, Warehouse, Tag } from "lucide-react"
+import DeleteProductButton from "@/components/admin/product-delete-button"
 import Link from "next/link"
 import Image from "next/image"
 import { ProductAttributesDisplay } from "@/components/admin/product-attributes"
@@ -36,15 +37,10 @@ async function getProduct(id: number): Promise<Product | null> {
     return null
   }
 
-  // Ensure currency and category are undefined instead of null to match Product type
   if (product) {
-    return {
-      ...product,
-      currency: product.currency ?? undefined,
-      category: product.category ?? undefined,
-    }
+    return product as Product
   }
-  return product
+  return null
 }
 
 async function getProductVariants(variantGroup: string, excludeId: number) {
@@ -114,14 +110,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Product
+          <Button asChild variant="outline">
+            <Link href={`/admin/products/${product.id}/edit`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Product
+            </Link>
           </Button>
-          <Button variant="destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
+          <DeleteProductButton id={product.id} />
         </div>
       </div>
 

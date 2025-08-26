@@ -261,11 +261,13 @@ export function OrdersTableClient({
   const SortableHeader = ({
     column,
     children,
+    className = '',
   }: {
     column: string;
     children: React.ReactNode;
+    className?: string;
   }) => (
-    <TableHead>
+    <TableHead className={className}>
       <Button
         variant="ghost"
         onClick={() => handleSort(column)}
@@ -627,18 +629,18 @@ export function OrdersTableClient({
           </div>
         ) : (
           // Desktop Table Layout with horizontal scroll on small widths
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
+          <div className="rounded-lg border overflow-x-auto shadow-sm">
+            <Table className="text-sm">
               <TableHeader>
-                <TableRow>
-                  <SortableHeader column="code">Order</SortableHeader>
-                  <SortableHeader column="customer">Customer</SortableHeader>
-                  <TableHead>Items</TableHead>
-                  <SortableHeader column="total">Total</SortableHeader>
-                  <SortableHeader column="payment">Payment</SortableHeader>
-                  <SortableHeader column="status">Status</SortableHeader>
-                  <SortableHeader column="created_at">Date</SortableHeader>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="hover:bg-muted/30">
+                  <SortableHeader column="code" className="px-4 py-3">Order</SortableHeader>
+                  <SortableHeader column="customer" className="px-4 py-3">Customer</SortableHeader>
+                  <TableHead className="px-4 py-3">Items</TableHead>
+                  <SortableHeader column="total" className="px-4 py-3">Total</SortableHeader>
+                  <SortableHeader column="payment" className="px-4 py-3">Payment</SortableHeader>
+                  <SortableHeader column="status" className="px-4 py-3">Status</SortableHeader>
+                  <SortableHeader column="created_at" className="px-4 py-3">Date</SortableHeader>
+                  <TableHead className="text-right px-4 py-3">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -654,10 +656,10 @@ export function OrdersTableClient({
                   orders.map((order) => (
                     <TableRow
                       key={order.id}
-                      className="cursor-pointer"
+                      className="cursor-pointer transition-colors hover:bg-muted/50"
                       onClick={() => router.push(`/admin/orders/${order.code || order.id}`)}
                     >
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <div className="space-y-1">
                           <p className="font-medium">
                             #{order.code || order.id}
@@ -667,7 +669,7 @@ export function OrdersTableClient({
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <div className="space-y-1">
                           <p className="font-medium">
                             {order.user?.first_name} {order.user?.last_name}
@@ -677,7 +679,7 @@ export function OrdersTableClient({
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <div className="space-y-1">
                           <p className="font-medium">
                             {order.order_items?.length || 0} items
@@ -692,7 +694,7 @@ export function OrdersTableClient({
                             )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top whitespace-nowrap">
                         <div className="space-y-1">
                           <p className="font-medium">
                             {priceFmt(order.total_price, order)}
@@ -704,7 +706,7 @@ export function OrdersTableClient({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <Badge
                           className={getPaymentMethodColor(
                             order.payment_method
@@ -713,12 +715,12 @@ export function OrdersTableClient({
                           {order.payment_method || "cash"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <Badge className={getStatusColor(order.status)}>
                           {order.status || "pending"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top whitespace-nowrap">
                         <div className="space-y-1">
                           <p className="text-sm">
                             {order.created_at &&
@@ -732,7 +734,7 @@ export function OrdersTableClient({
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right px-4 py-3 align-top">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
