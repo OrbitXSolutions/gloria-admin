@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState } from "react";
 import { format } from "date-fns";
-import { ArrowLeft, Package, User, MapPin, CreditCard, FileText, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, Package, User, MapPin, CreditCard, FileText, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,9 @@ import { toast } from "sonner";
 import { getProductImageUrl } from "@/lib/constants/supabase-storage";
 import Link from "next/link";
 import type { OrderWithItems } from "@/lib/types/database.types";
-import { updateOrderStatus } from "@/lib/actions/orders";
+import { updateOrderStatus, softDeleteOrder } from "@/lib/actions/orders";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useRouter } from 'next/navigation';
 import { formatPrice } from "@/lib/utils/format-price";
 
 interface OrderDetailsProps {
@@ -70,6 +72,7 @@ const orderStatuses = [
 ];
 
 export function OrderDetails({ order }: OrderDetailsProps) {
+    const router = useRouter();
     const [statusUpdateDialog, setStatusUpdateDialog] = useState<{
         isOpen: boolean;
         newStatus: string;
@@ -134,6 +137,29 @@ export function OrderDetails({ order }: OrderDetailsProps) {
         return format(new Date(dateString), "PPP 'at' p");
     };
 
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    async function handleDelete() {
+        if (deleting) return;
+        setDeleting(true);
+        try {
+            const res = await softDeleteOrder({ id: order.id });
+            if (res) {
+                toast.success('Order deleted');
+                setDeleteOpen(false);
+                setTimeout(() => router.push('/admin/orders'), 200);
+            } else {
+                toast.error('Delete failed');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Delete failed');
+        } finally {
+            setDeleting(false);
+        }
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -168,6 +194,31 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                         <RefreshCw className="h-4 w-4" />
                         Update Status
                     </Button>
+                    <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm" className="gap-2">
+                                <Trash2 className="h-4 w-4" /> Delete Order
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this order?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will soft-delete the order record. You can restore it from the database later if needed.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                    {deleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</> : 'Yes, delete'}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 

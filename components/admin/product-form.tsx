@@ -5,6 +5,7 @@
 
 import * as React from "react";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
@@ -52,6 +53,7 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 export function ProductForm({ product, mode }: ProductFormProps) {
+  const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -95,6 +97,10 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       toast.success("Product updated");
       setGlobalError(null);
       setPrimaryFile(null); setGalleryFiles([]); setMetaThumbFile(null);
+      // Redirect to products list after brief delay to allow toast visibility
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 300);
     },
     onError: ({ error }) => {
       console.error("Update product error (safe-action)", error);
@@ -230,8 +236,9 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     }
   }, [allSlugsAr, form, generateRandomSlug]);
 
-  // Meta auto-fill (lightweight heuristic)
+  // Meta auto-fill only for edit mode (create mode always server-generated & fields hidden)
   useEffect(() => {
+    if (mode !== 'edit') return; // skip in create
     const sub = form.watch(values => {
       const v = values as ProductFormData;
       const cat = categories.find(c => c.id === v.category_id);
@@ -243,7 +250,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       if (v.primary_image && !v.meta_thumbnail && !metaThumbFile) form.setValue("meta_thumbnail", v.primary_image, { shouldDirty: false });
     });
     return () => sub.unsubscribe();
-  }, [form, categories, metaThumbFile]);
+  }, [form, categories, metaThumbFile, mode]);
 
   const isSuperAdmin = roles.some(r => ["superadmin", "admin"].includes(r));
 
@@ -444,7 +451,17 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                             {galleryFiles.map((f, i) => (
                               <div key={i} className="relative group">
                                 <img src={URL.createObjectURL(f)} alt={f.name} className="h-20 w-full object-cover rounded" />
-                                <button type="button" onClick={() => setGalleryFiles(galleryFiles.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white text-xs opacity-0 group-hover:opacity-100 transition" aria-label="Remove">×</button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (typeof window !== 'undefined' && !window.confirm('Remove this new image?')) return;
+                                    setGalleryFiles(galleryFiles.filter((_, idx) => idx !== i));
+                                  }}
+                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white text-xs opacity-0 group-hover:opacity-100 transition"
+                                  aria-label="Remove new image"
+                                >
+                                  ×
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -454,7 +471,22 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                             <p className="text-xs mb-1 text-muted-foreground">Existing:</p>
                             <div className="grid grid-cols-3 gap-2">
                               {field.value.map((img, i) => (
-                                <img key={i} src={getProductImageUrl(img)} alt={img} className="h-20 w-full object-cover rounded" />
+                                <div key={i} className="relative group">
+                                  <img src={getProductImageUrl(img)} alt={img} className="h-20 w-full object-cover rounded" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (typeof window !== 'undefined' && !window.confirm('Remove this existing image from gallery?')) return;
+                                      const next = (field.value || []).filter((_, idx) => idx !== i);
+                                      field.onChange(next);
+                                      toast.success("Image removed");
+                                    }}
+                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white text-xs opacity-0 group-hover:opacity-100 transition"
+                                    aria-label="Remove existing image"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -465,14 +497,13 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                   </FormItem>
                 )} />
 
-                {mode === "create" && (
-                  <div className="flex justify-end pt-2">
-                    <Button type="submit" variant="secondary" disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Product
-                    </Button>
-                  </div>
-                )}
+                {/* Inline save button under gallery for both create & edit modes */}
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" variant="secondary" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {mode === "create" ? "Create Product" : "Update Product"}
+                  </Button>
+                </div>
               </Section>
 
               {/* Pricing section removed - merged into Basic Information */}
@@ -567,81 +598,82 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 )} />
               </Section>
 
-              {/* SEO now visible to all users (role gating removed) */}
-              <Section title="SEO & Metadata" description="Titles, descriptions & meta thumbnail">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField control={form.control} name="meta_title_en" render={({ field }) => (
+              {mode === 'edit' && (
+                <Section title="SEO & Metadata" description="Auto-generated on create. You can adjust here if needed.">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="meta_title_en" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Title (EN)</FormLabel>
+                        <FormControl><Input placeholder="SEO title" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="meta_title_ar" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Title (AR)</FormLabel>
+                        <FormControl><Input placeholder="عنوان" dir="rtl" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="meta_description_en" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Description (EN)</FormLabel>
+                        <FormControl><Textarea className="min-h-[80px]" placeholder="Search snippet" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="meta_description_ar" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Description (AR)</FormLabel>
+                        <FormControl><Textarea dir="rtl" className="min-h-[80px]" placeholder="وصف" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <FormField control={form.control} name="meta_thumbnail" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Meta Title (EN)</FormLabel>
-                      <FormControl><Input placeholder="SEO title" {...field} /></FormControl>
+                      <FormLabel>Meta Thumbnail</FormLabel>
+                      <FormControl>
+                        <FileUpload accept="image/*" maxFiles={1} maxSize={2 * 1024 * 1024} onAccept={(files) => { const f = files[0]; if (f) { setMetaThumbFile(f); toast.success("Meta thumbnail selected"); } }}>
+                          <FileUploadDropzone>
+                            <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                              {metaThumbFile ? (
+                                <>
+                                  <img src={URL.createObjectURL(metaThumbFile)} alt="Meta thumbnail" className="h-24 w-24 object-cover rounded" />
+                                  <p>{metaThumbFile.name}</p>
+                                </>
+                              ) : field.value ? (
+                                <>
+                                  <img src={getProductImageUrl(field.value)} alt="Existing meta thumbnail" className="h-24 w-24 object-cover rounded" />
+                                  <p>Current thumbnail</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p>Drop or click to select</p>
+                                  <p className="text-xs">PNG/JPG/WEBP up to 2MB</p>
+                                </>
+                              )}
+                            </div>
+                          </FileUploadDropzone>
+                          <FileUploadList />
+                        </FileUpload>
+                      </FormControl>
+                      <FormDescription>Used for social sharing (approx 1200x630).</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="meta_title_ar" render={({ field }) => (
+                  <FormField control={form.control} name="keywords" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Meta Title (AR)</FormLabel>
-                      <FormControl><Input placeholder="عنوان" dir="rtl" {...field} /></FormControl>
+                      <FormLabel>Keywords</FormLabel>
+                      <FormControl><KeywordsInput value={field.value || []} onChange={field.onChange} placeholder="Add keyword" /></FormControl>
+                      <FormDescription>Improves internal and external search.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField control={form.control} name="meta_description_en" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Meta Description (EN)</FormLabel>
-                      <FormControl><Textarea className="min-h-[80px]" placeholder="Search snippet" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="meta_description_ar" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Meta Description (AR)</FormLabel>
-                      <FormControl><Textarea dir="rtl" className="min-h-[80px]" placeholder="وصف" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <FormField control={form.control} name="meta_thumbnail" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meta Thumbnail</FormLabel>
-                    <FormControl>
-                      <FileUpload accept="image/*" maxFiles={1} maxSize={2 * 1024 * 1024} onAccept={(files) => { const f = files[0]; if (f) { setMetaThumbFile(f); toast.success("Meta thumbnail selected"); } }}>
-                        <FileUploadDropzone>
-                          <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
-                            {metaThumbFile ? (
-                              <>
-                                <img src={URL.createObjectURL(metaThumbFile)} alt="Meta thumbnail" className="h-24 w-24 object-cover rounded" />
-                                <p>{metaThumbFile.name}</p>
-                              </>
-                            ) : field.value ? (
-                              <>
-                                <img src={getProductImageUrl(field.value)} alt="Existing meta thumbnail" className="h-24 w-24 object-cover rounded" />
-                                <p>Current thumbnail</p>
-                              </>
-                            ) : (
-                              <>
-                                <p>Drop or click to select</p>
-                                <p className="text-xs">PNG/JPG/WEBP up to 2MB</p>
-                              </>
-                            )}
-                          </div>
-                        </FileUploadDropzone>
-                        <FileUploadList />
-                      </FileUpload>
-                    </FormControl>
-                    <FormDescription>Used for social sharing (approx 1200x630).</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="keywords" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Keywords</FormLabel>
-                    <FormControl><KeywordsInput value={field.value || []} onChange={field.onChange} placeholder="Add keyword" /></FormControl>
-                    <FormDescription>Improves internal and external search.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </Section>
+                </Section>
+              )}
 
               {/* Slugs moved to end for clarity */}
               <Section title="Slugs" description="Auto-generated 8 character identifiers. You can override if needed.">

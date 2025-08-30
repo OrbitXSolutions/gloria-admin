@@ -1,17 +1,7 @@
 "use client"
 
-import { Search, Bell, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Globe, LogOut } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useAction } from 'next-safe-action/hooks'
 import { logout } from '@/lib/actions/auth'
@@ -26,7 +16,7 @@ export function AdminHeader({ userEmail = '', roles = [] }: AdminHeaderProps) {
   function onLogout() { execLogout() }
   const primaryRole = roles.includes('superadmin') ? 'Super Admin' : roles.includes('admin') ? 'Admin' : roles.includes('editor') ? 'Editor' : ''
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full border-b bg-[#967673] text-white">
       <div className="flex h-16 items-center gap-4 px-4">
         <SidebarTrigger />
 
@@ -36,11 +26,11 @@ export function AdminHeader({ userEmail = '', roles = [] }: AdminHeaderProps) {
             <Input placeholder="Search products, orders, users..." className="pl-10 bg-muted/50" />
           </div> */}
           <div className="flex flex-col leading-tight">
-            <span className="text-sm text-muted-foreground">Welcome</span>
+            <span className="text-sm opacity-90">Welcome</span>
             <span className="font-medium flex items-center gap-2 text-sm">
               {userEmail || 'Visitor'}
               {primaryRole && userEmail && (
-                <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20">
+                <span className="inline-flex items-center rounded-md bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white border border-white/30">
                   {primaryRole}
                 </span>
               )}
@@ -48,43 +38,17 @@ export function AdminHeader({ userEmail = '', roles = [] }: AdminHeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-4 w-4" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground flex items-center justify-center">
-              3
-            </span>
-          </Button> */}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Admin" />
-                  <AvatarFallback>AD</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">Account</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <span>Settings</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={onLogout} disabled={isExecuting}>
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex items-center gap-3">
+          <Button asChild size="sm" variant="secondary" className="bg-white/15 hover:bg-white/25 text-white border border-white/20 flex items-center">
+            <a href="https://www.eleva-boutique.net/" target="_blank" rel="noopener noreferrer" className="flex items-center">
+              <Globe className="mr-1.5 h-4 w-4" />
+              <span>Website</span>
+            </a>
+          </Button>
+          <Button size="sm" onClick={onLogout} disabled={isExecuting} className="flex items-center bg-[#7f7863] hover:bg-[#6f6957] text-white disabled:opacity-60 disabled:cursor-not-allowed">
+            <LogOut className="mr-1.5 h-4 w-4" />
+            <span>{isExecuting ? 'Logging out...' : 'Log Out'}</span>
+          </Button>
         </div>
       </div>
     </header>

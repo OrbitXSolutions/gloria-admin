@@ -66,6 +66,18 @@ import {
 import { ProductAttributesCompact } from "./product-attributes";
 import { useAction } from "next-safe-action/hooks";
 import { duplicateProduct, deleteProduct } from "@/lib/actions/products";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import type { Database, Json, Product } from "@/lib/types/database.types";
 import { getProductImageUrl } from "@/lib/constants/supabase-storage";
 
@@ -119,7 +131,25 @@ export function ProductsTableClient({
   const isMobile = useIsMobile();
 
   const { execute: execDuplicate } = useAction(duplicateProduct);
-  const { execute: execDelete } = useAction(deleteProduct);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const { execute: execDelete, status: deleteStatus } = useAction(deleteProduct, {
+    onSuccess() { toast.success('Product deleted'); setDeleteId(null); router.refresh(); },
+    onError() { toast.error('Failed to delete product'); }
+  });
+  const pendingDelete = deleteStatus === 'executing';
+
+  function DeleteMenuItem({ id }: { id: number }) {
+    const isPending = pendingDelete && deleteId === id;
+    return (
+      <DropdownMenuItem
+        className="text-destructive flex items-center"
+        disabled={isPending}
+        onSelect={(e) => { e.preventDefault(); setDeleteId(id); }}
+      >
+        <Trash2 className="mr-2 h-4 w-4" /> {isPending ? 'Deleting...' : 'Delete'}
+      </DropdownMenuItem>
+    );
+  }
 
   const updateFilters = (newFilters: FilterUpdate) => {
     const params = new URLSearchParams(searchParams);
@@ -480,17 +510,7 @@ export function ProductsTableClient({
                                     Copy link
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() =>
-                                      execDelete({
-                                        id: p.id,
-                                      })
-                                    }
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
+                                  <DeleteMenuItem id={p.id} />
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -657,12 +677,7 @@ export function ProductsTableClient({
                                 <CopyIcon className="mr-2 h-4 w-4" /> Duplicate
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => execDelete({ id: p.id })}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </DropdownMenuItem>
+                              <DeleteMenuItem id={p.id} />
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -746,6 +761,27 @@ export function ProductsTableClient({
           </div>
         )}
       </CardContent>
+      {/* Global Delete Confirmation Dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o && !pendingDelete) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will soft-delete the product. You can restore it later from the database if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pendingDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pendingDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (!pendingDelete && deleteId !== null) execDelete({ id: deleteId }); }}
+            >
+              {pendingDelete ? 'Deleting...' : 'Yes, delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
