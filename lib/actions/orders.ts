@@ -6,6 +6,23 @@ import { revalidatePath } from "next/cache";
 import { sendOrderStatusUpdateEmails } from "./send-order-status-emails";
 import type { OrderWithItems } from "@/lib/types/database.types";
 import { actionClient } from "../common/safe-action";
+// Soft delete via DB function
+export const softDeleteOrder = actionClient
+    .inputSchema(z.object({ id: z.number() }))
+    .action(async ({ parsedInput }) => {
+        const supabase = await createSsrClient();
+        const { id } = parsedInput;
+        // Call Postgres function
+        // Use any cast because generated types don't yet include this function
+        const { error } = await (supabase as any).rpc('soft_delete_order_record', { p_order_id: id });
+        if (error) {
+            console.error('soft_delete_order_record error', error);
+            throw new Error('Failed to delete order');
+        }
+        revalidatePath('/admin/orders');
+        revalidatePath(`/admin/orders/${id}`);
+        return { success: true };
+    });
 // Schema for updating order status
 const updateOrderStatusSchema = z.object({
     orderId: z.number(),

@@ -55,12 +55,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -72,6 +66,18 @@ import {
 import { ProductAttributesCompact } from "./product-attributes";
 import { useAction } from "next-safe-action/hooks";
 import { duplicateProduct, deleteProduct } from "@/lib/actions/products";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import type { Database, Json, Product } from "@/lib/types/database.types";
 import { getProductImageUrl } from "@/lib/constants/supabase-storage";
 
@@ -125,7 +131,25 @@ export function ProductsTableClient({
   const isMobile = useIsMobile();
 
   const { execute: execDuplicate } = useAction(duplicateProduct);
-  const { execute: execDelete } = useAction(deleteProduct);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const { execute: execDelete, status: deleteStatus } = useAction(deleteProduct, {
+    onSuccess() { toast.success('Product deleted'); setDeleteId(null); router.refresh(); },
+    onError() { toast.error('Failed to delete product'); }
+  });
+  const pendingDelete = deleteStatus === 'executing';
+
+  function DeleteMenuItem({ id }: { id: number }) {
+    const isPending = pendingDelete && deleteId === id;
+    return (
+      <DropdownMenuItem
+        className="text-destructive flex items-center"
+        disabled={isPending}
+        onSelect={(e) => { e.preventDefault(); setDeleteId(id); }}
+      >
+        <Trash2 className="mr-2 h-4 w-4" /> {isPending ? 'Deleting...' : 'Delete'}
+      </DropdownMenuItem>
+    );
+  }
 
   const updateFilters = (newFilters: FilterUpdate) => {
     const params = new URLSearchParams(searchParams);
@@ -216,34 +240,12 @@ export function ProductsTableClient({
         : { label: "In Stock", variant: "default" as const }
       : { label: "Out of Stock", variant: "destructive" as const };
 
-  const priceFmt = (price: number | null, cur?: { symbol_en: string | null }) =>
+  const priceFmt = (price: number | null, cur?: { symbol_en: string | null, symbol_ar?: string | null, code?: string | null }) =>
     price !== null && price !== undefined
-      ? `${cur?.symbol_en ?? "$"}${price.toFixed(2)}`
+      ? `${(cur?.symbol_en || cur?.code || 'AED')}${price.toFixed(2)}`
       : "N/A";
 
-  const renderColor = (attrs: Product["attributes"]) => {
-    const color =
-      attrs && typeof attrs === "object" && "color" in attrs
-        ? (attrs as any).color
-        : null;
-    if (!color || typeof color !== "object") return null;
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className="h-4 w-4 rounded-full border border-border"
-              style={{ backgroundColor: color.hex }}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{color.name}</p>
-            <p className="text-xs text-muted-foreground">{color.hex}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
+  // Attributes column removed from desktop table; attribute badges still shown in mobile cards.
 
   return (
     <Card>
@@ -372,32 +374,32 @@ export function ProductsTableClient({
             )}
             {(sorting.sortBy !== "created_at" ||
               sorting.sortOrder !== "desc") && (
-              <Badge variant="secondary" className="gap-1">
-                Sort:{" "}
-                {sorting.sortBy === "name"
-                  ? "Name"
-                  : sorting.sortBy === "price"
-                  ? "Price"
-                  : sorting.sortBy === "quantity"
-                  ? "Stock"
-                  : sorting.sortBy === "sku"
-                  ? "SKU"
-                  : sorting.sortBy === "created_at"
-                  ? "Date Created"
-                  : sorting.sortBy}{" "}
-                ({sorting.sortOrder === "asc" ? "↑" : "↓"})
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    updateFilters({ sortBy: "created_at", sortOrder: "desc" })
-                  }
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
+                <Badge variant="secondary" className="gap-1">
+                  Sort:{" "}
+                  {sorting.sortBy === "name"
+                    ? "Name"
+                    : sorting.sortBy === "price"
+                      ? "Price"
+                      : sorting.sortBy === "quantity"
+                        ? "Stock"
+                        : sorting.sortBy === "sku"
+                          ? "SKU"
+                          : sorting.sortBy === "created_at"
+                            ? "Date Created"
+                            : sorting.sortBy}{" "}
+                  ({sorting.sortOrder === "asc" ? "↑" : "↓"})
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      updateFilters({ sortBy: "created_at", sortOrder: "desc" })
+                    }
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              )}
           </div>
         )}
 
@@ -508,17 +510,7 @@ export function ProductsTableClient({
                                     Copy link
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() =>
-                                      execDelete({
-                                        id: p.id,
-                                      })
-                                    }
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
+                                  <DeleteMenuItem id={p.id} />
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -540,14 +532,13 @@ export function ProductsTableClient({
             )}
           </div>
         ) : (
-          // Desktop Table Layout
-          <div className="rounded-md border">
+          // Desktop Table Layout with horizontal scroll on small widths
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[90px]">Image</TableHead>
                   <SortableHeader column="name">Details</SortableHeader>
-                  <TableHead>Attributes</TableHead>
                   <SortableHeader column="price">Price</SortableHeader>
                   <SortableHeader column="quantity">Stock</SortableHeader>
                   <TableHead>Variants</TableHead>
@@ -558,7 +549,7 @@ export function ProductsTableClient({
               <TableBody>
                 {products.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {hasActiveFilters
                           ? "No products found matching your filters."
@@ -599,15 +590,6 @@ export function ProductsTableClient({
                           <p className="mt-1 text-xs text-muted-foreground">
                             SKU: {p.sku ?? "—"}
                           </p>
-                        </TableCell>
-                        <TableCell className="max-w-[160px]">
-                          <div className="flex items-center gap-1">
-                            {renderColor(p.attributes)}
-                            <ProductAttributesCompact
-                              attributes={p.attributes as any}
-                              maxItems={2}
-                            />
-                          </div>
                         </TableCell>
                         <TableCell>
                           <p>{priceFmt(p.price, p.currency)}</p>
@@ -695,12 +677,7 @@ export function ProductsTableClient({
                                 <CopyIcon className="mr-2 h-4 w-4" /> Duplicate
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => execDelete({ id: p.id })}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </DropdownMenuItem>
+                              <DeleteMenuItem id={p.id} />
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -784,6 +761,27 @@ export function ProductsTableClient({
           </div>
         )}
       </CardContent>
+      {/* Global Delete Confirmation Dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o && !pendingDelete) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will soft-delete the product. You can restore it later from the database if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pendingDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pendingDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (!pendingDelete && deleteId !== null) execDelete({ id: deleteId }); }}
+            >
+              {pendingDelete ? 'Deleting...' : 'Yes, delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

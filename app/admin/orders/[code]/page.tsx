@@ -4,81 +4,96 @@ import { OrderDetails } from "@/components/admin/order-details";
 import type { OrderWithItems } from "@/lib/types/database.types";
 
 interface OrderDetailsPageProps {
-  params: Promise<{ code: string }>;
+    params: Promise<{ code: string }>;
 }
 
-async function getOrderByCode(code: string): Promise<OrderWithItems | null> {
-  const supabase = await createSsrClient();
+async function getOrderByCode(codeOrId: string): Promise<OrderWithItems | null> {
+    const supabase = await createSsrClient();
 
-  // First, get the order with basic info
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select(
-      `
+    // First, get the order with basic info
+    let { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select(`
       *,
       user:users(*),
       address:addresses(*),
       order_history:order_history(*)
-    `
-    )
-    .eq("code", code)
-    .eq("is_deleted", false)
-    .single();
+    `)
+        .eq("code", codeOrId)
+        .eq("is_deleted", false)
+        .single();
 
-  if (orderError || !order) {
-    return null;
-  }
+    if (orderError || !order) {
+        // Fallback: if the param looks like a numeric id, try by id
+        const id = Number(codeOrId)
+        if (!Number.isNaN(id)) {
+            const { data: byId } = await supabase
+                .from('orders')
+                .select(`
+          *,
+          user:users(*),
+          address:addresses(*),
+          order_history:order_history(*)
+        `)
+                .eq('id', id)
+                .eq('is_deleted', false)
+                .single()
+            order = byId as any
+        }
+        if (!order) return null;
+    }
 
-  // Get order items with product details
-  const { data: orderItems, error: itemsError } = await supabase
-    .from("order_items")
-    .select(
-      `
+    // Get order items with product details
+    const { data: orderItems, error: itemsError } = await supabase
+        .from("order_items")
+        .select(`
       *,
       product:products(*)
-    `
-    )
-    .eq("order_id", order.id)
-    .eq("is_deleted", false);
+    `)
+        .eq("order_id", order.id)
+        .eq("is_deleted", false);
 
-  if (itemsError) {
-    console.error("Error fetching order items:", itemsError);
-  }
+    if (itemsError) {
+        console.error("Error fetching order items:", itemsError);
+    }
 
-  // Get invoice if exists
-  const { data: invoice, error: invoiceError } = await supabase
-    .from("invoices")
-    .select("*")
-    .eq("order_code", code)
-    .eq("is_deleted", false)
-    .single();
+    // Get invoice if exists and we have an order code
+    let invoice: any = null
+    if (order.code) {
+        const { data: inv, error: invoiceError } = await supabase
+            .from("invoices")
+            .select("*")
+            .eq("order_code", order.code as string)
+            .eq("is_deleted", false)
+            .maybeSingle();
+        if (invoiceError && invoiceError.code !== "PGRST116") {
+            console.error("Error fetching invoice:", invoiceError);
+        }
+        invoice = inv
+    }
 
-  if (invoiceError && invoiceError.code !== "PGRST116") {
-    console.error("Error fetching invoice:", invoiceError);
-  }
+    // Combine all data
+    const orderWithItems: OrderWithItems = {
+        ...order,
+        order_items: orderItems || [],
+        user: order.user || undefined,
+        address: order.address || undefined,
+        order_history: order.order_history || [],
+        invoice: invoice || undefined,
+    };
 
-  // Combine all data
-  const orderWithItems: OrderWithItems = {
-    ...order,
-    order_items: orderItems || [],
-    user: order.user || undefined,
-    address: order.address || undefined,
-    order_history: order.order_history || [],
-    invoice: invoice || undefined,
-  };
-
-  return orderWithItems;
+    return orderWithItems;
 }
 
 export default async function OrderDetailsPage({
-  params,
+    params,
 }: OrderDetailsPageProps) {
-  const { code } = await params;
-  const order = await getOrderByCode(code);
+    const { code } = await params;
+    const order = await getOrderByCode(code);
 
-  if (!order) {
-    notFound();
-  }
+    if (!order) {
+        notFound();
+    }
 
-  return <OrderDetails order={order} />;
-}
+    return <OrderDetails order={order} />;
+} 
