@@ -261,11 +261,13 @@ export function OrdersTableClient({
   const SortableHeader = ({
     column,
     children,
+    className = '',
   }: {
     column: string;
     children: React.ReactNode;
+    className?: string;
   }) => (
-    <TableHead>
+    <TableHead className={className}>
       <Button
         variant="ghost"
         onClick={() => handleSort(column)}
@@ -328,16 +330,16 @@ export function OrdersTableClient({
   };
 
   const priceFmt = (price: number | null, order?: Order) => {
-    if (price === null || price === undefined) return "$0.00";
-
+    if (price === null || price === undefined) return 'AED0.00'
     return formatPrice(
       price,
       {
         code: order?.order_items?.[0]?.product?.currency_code ?? 'AED',
+        symbol_en: 'AED'
       },
       'en'
-    );
-  };
+    )
+  }
 
   return (
     <Card>
@@ -528,7 +530,7 @@ export function OrdersTableClient({
                 const firstItem = order.order_items?.[0];
 
                 return (
-                  <Card key={order.id}>
+                  <Card key={order.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${order.code || order.id}`)}>
                     <CardContent className="pt-6">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between">
@@ -580,12 +582,19 @@ export function OrdersTableClient({
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
+                              <Button
+                                variant="ghost"
+                                className="h-11 w-11 p-0 relative z-10"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                }}
+                              >
                                 <span className="sr-only">Open menu</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()} className="z-20">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
                                 <Link href={`/admin/orders/${order.code || order.id}`}>
@@ -599,12 +608,12 @@ export function OrdersTableClient({
                                   Edit Order
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openStatusUpdateDialog(order)}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openStatusUpdateDialog(order) }}>
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Update Status
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                                 <Package className="mr-2 h-4 w-4" />
                                 Print Invoice
                               </DropdownMenuItem>
@@ -619,19 +628,19 @@ export function OrdersTableClient({
             )}
           </div>
         ) : (
-          // Desktop Table Layout
-          <div className="rounded-md border">
-            <Table>
+          // Desktop Table Layout with horizontal scroll on small widths
+          <div className="rounded-lg border overflow-x-auto shadow-sm">
+            <Table className="text-sm">
               <TableHeader>
-                <TableRow>
-                  <SortableHeader column="code">Order</SortableHeader>
-                  <SortableHeader column="customer">Customer</SortableHeader>
-                  <TableHead>Items</TableHead>
-                  <SortableHeader column="total">Total</SortableHeader>
-                  <SortableHeader column="payment">Payment</SortableHeader>
-                  <SortableHeader column="status">Status</SortableHeader>
-                  <SortableHeader column="created_at">Date</SortableHeader>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="hover:bg-muted/30">
+                  <SortableHeader column="code" className="px-4 py-3">Order</SortableHeader>
+                  <SortableHeader column="customer" className="px-4 py-3">Customer</SortableHeader>
+                  <TableHead className="px-4 py-3">Items</TableHead>
+                  <SortableHeader column="total" className="px-4 py-3">Total</SortableHeader>
+                  <SortableHeader column="payment" className="px-4 py-3">Payment</SortableHeader>
+                  <SortableHeader column="status" className="px-4 py-3">Status</SortableHeader>
+                  <SortableHeader column="created_at" className="px-4 py-3">Date</SortableHeader>
+                  <TableHead className="text-right px-4 py-3">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -645,8 +654,12 @@ export function OrdersTableClient({
                   </TableRow>
                 ) : (
                   orders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
+                    <TableRow
+                      key={order.id}
+                      className="cursor-pointer transition-colors hover:bg-muted/50"
+                      onClick={() => router.push(`/admin/orders/${order.code || order.id}`)}
+                    >
+                      <TableCell className="px-4 py-3 align-top">
                         <div className="space-y-1">
                           <p className="font-medium">
                             #{order.code || order.id}
@@ -656,7 +669,7 @@ export function OrdersTableClient({
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <div className="space-y-1">
                           <p className="font-medium">
                             {order.user?.first_name} {order.user?.last_name}
@@ -666,7 +679,7 @@ export function OrdersTableClient({
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <div className="space-y-1">
                           <p className="font-medium">
                             {order.order_items?.length || 0} items
@@ -681,7 +694,7 @@ export function OrdersTableClient({
                             )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top whitespace-nowrap">
                         <div className="space-y-1">
                           <p className="font-medium">
                             {priceFmt(order.total_price, order)}
@@ -693,7 +706,7 @@ export function OrdersTableClient({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <Badge
                           className={getPaymentMethodColor(
                             order.payment_method
@@ -702,12 +715,12 @@ export function OrdersTableClient({
                           {order.payment_method || "cash"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top">
                         <Badge className={getStatusColor(order.status)}>
                           {order.status || "pending"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 align-top whitespace-nowrap">
                         <div className="space-y-1">
                           <p className="text-sm">
                             {order.created_at &&
@@ -721,15 +734,27 @@ export function OrdersTableClient({
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right px-4 py-3 align-top">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Button
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                              }}
+                            >
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent
+                            align="end"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                          >
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
                               <Link href={`/admin/orders/${order.code || order.id}`}>

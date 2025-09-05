@@ -14,10 +14,12 @@ export const ProductFormSchema = z.object({
   description_ar: z.string().optional(),
   slug: z.string().min(1, "English slug is required"),
   slug_ar: z.string().optional(),
-  sku: z.string().min(1, "SKU is required"),
-  price: z.number().min(0, "Price must be positive"),
-  old_price: z.number().min(0, "Old price must be positive").optional(),
-  quantity: z.number().int().min(0, "Quantity must be non-negative"),
+  // SKU now optional (allow empty string). If provided, must be a string.
+  sku: z.string().optional(),
+  // Use coercion so form string inputs are converted to numbers automatically
+  price: z.coerce.number().min(0, "Price must be positive"),
+  old_price: z.preprocess(v => (v === "" || v === null ? undefined : v), z.coerce.number().min(0, "Old price must be positive").optional()),
+  quantity: z.coerce.number().int().min(0, "Quantity must be non-negative"),
   category_id: z.number().int().positive("Category is required"),
   country_code: z.string().min(1, "Country is required"),
   currency_code: z.string().min(1, "Currency is required"),

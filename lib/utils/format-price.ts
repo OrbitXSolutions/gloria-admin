@@ -10,10 +10,13 @@ export function formatPrice(
     },
     locale = "en"
 ): string {
-    if (!price) return "0";
+    if (price === null || price === undefined) {
+        const fallback = currency?.symbol_en || currency?.code || 'AED'
+        return `${fallback}0.00`
+    }
 
     // Get the appropriate symbol based on locale
-    let symbol = "$"; // default fallback
+    let symbol = "AED"; // default fallback to AED
 
     if (currency) {
         if (locale === "ar" && currency.symbol_ar) {

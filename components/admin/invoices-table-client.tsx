@@ -131,7 +131,7 @@ export function InvoicesTableClient({
       </form>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -172,7 +172,7 @@ export function InvoicesTableClient({
                   <TableCell className="font-medium">
                     {formatPrice(
                       invoice.total_price,
-                      { code: invoice.order?.order_items?.[0]?.product?.currency_code || "USD" },
+                      { code: invoice.order?.order_items?.[0]?.product?.currency_code || 'AED', symbol_en: 'AED' },
                       'en'
                     )}
                   </TableCell>

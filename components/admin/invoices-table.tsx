@@ -9,7 +9,7 @@ interface InvoicesTableProps {
 }
 
 export async function InvoicesTable({ searchParams }: InvoicesTableProps) {
-  const { page = "1", search = "" } = (await searchParams) || {};
+  const { page = "1", search = "" } = await searchParams || {};
 
   const result = await getInvoices({ page: Number(page), limit: 10, search });
 
@@ -32,7 +32,7 @@ export async function InvoicesTable({ searchParams }: InvoicesTableProps) {
       invoices={sanitizedInvoices as any}
       total={total}
       totalPages={totalPages}
-      currentPage={+page}
+      currentPage={Number(page)}
     />
   );
 }
