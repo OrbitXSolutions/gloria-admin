@@ -54,7 +54,7 @@ export const generateContactEmailHTML = (data: {
       
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
       <p style="color: #6c757d; font-size: 12px; text-align: center;">
-        This email was sent from the Eleva Boutique contact form.
+        This email was sent from the Gloria Natural contact form.
       </p>
     </div>
   `;
@@ -135,8 +135,8 @@ export const generateCustomerOrderConfirmationHTML = (data: {
         
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
         <p style="color: #6c757d; font-size: 12px; text-align: center;">
-          Thank you for choosing Eleva Boutique!<br>
-          If you have any questions, please contact us at support@eleva-boutique.net
+          Thank you for choosing Gloria Natural!<br>
+          If you have any questions, please contact us at support@glorianaturals.ae
         </p>
       </div>
     </div>
@@ -224,7 +224,7 @@ export const generateAdminOrderNotificationHTML = (data: {
       
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
       <p style="color: #6c757d; font-size: 12px; text-align: center;">
-        This notification was sent from the Eleva Boutique order system.
+        This notification was sent from the Gloria Natural order system.
       </p>
     </div>
   `;
@@ -303,13 +303,13 @@ export const generateCustomerOrderStatusUpdateHTML = (data: {
         <div style="background-color: #e7f3ff; padding: 20px; border-radius: 5px; border-left: 4px solid #007bff;">
           <h3 style="color: #333; margin-top: 0;">Need Help?</h3>
           <p style="margin: 0; color: #004085;">
-            If you have any questions about your order status, please contact us at support@eleva-boutique.net
+            If you have any questions about your order status, please contact us at support@glorianaturals.ae
           </p>
         </div>
         
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
         <p style="color: #6c757d; font-size: 12px; text-align: center;">
-          Thank you for choosing Eleva Boutique!<br>
+          Thank you for choosing Gloria Natural!<br>
           Order Code: ${data.order.code}
         </p>
       </div>
@@ -402,7 +402,7 @@ export const generateAdminOrderStatusUpdateHTML = (data: {
       
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
       <p style="color: #6c757d; font-size: 12px; text-align: center;">
-        This notification was sent from the Eleva Boutique order system.
+        This notification was sent from the Gloria Natural order system.
       </p>
     </div>
   `;

@@ -14,11 +14,11 @@ export default function AnalyticsPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Google Search Console</CardTitle>
-                        <CardDescription>Search performance for eleva-boutique.net</CardDescription>
+                        <CardDescription>Search performance for glorianaturals.ae</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button asChild>
-                            <Link href={'https://search.google.com/search-console/performance/search-analytics?resource_id=sc-domain%3Aeleva-boutique.net'} target='_blank'>
+                            <Link href={'https://search.google.com/search-console/performance/search-analytics?resource_id=sc-domain%3Aglorianaturals.ae'} target='_blank'>
                                 Open Search Console
                             </Link>
                         </Button>

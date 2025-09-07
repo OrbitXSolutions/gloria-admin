@@ -7,7 +7,7 @@ export default function LoginPage() {
             <Card className="w-full max-w-sm">
                 <CardHeader>
                     <CardTitle>Sign in</CardTitle>
-                    <CardDescription>Access the Eleva Admin dashboard</CardDescription>
+                    <CardDescription>Access the Gloria Admin dashboard</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <LoginForm />

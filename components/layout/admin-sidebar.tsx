@@ -156,7 +156,7 @@ export function AdminSidebar({ roles = [] }: AdminSidebarProps) {
           <div className="h-8 w-8 rounded-lg bg-[#967673]/10 flex items-center justify-center">
             <Package className="h-4 w-4 text-[#967673]" />
           </div>
-          <span className="text-lg font-semibold">Eleva Dashboard</span>
+          <span className="text-lg font-semibold">Gloria Dashboard</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>

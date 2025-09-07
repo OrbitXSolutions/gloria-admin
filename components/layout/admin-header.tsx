@@ -40,7 +40,7 @@ export function AdminHeader({ userEmail = '', roles = [] }: AdminHeaderProps) {
 
         <div className="flex items-center gap-3">
           <Button asChild size="sm" variant="secondary" className="bg-white/15 hover:bg-white/25 text-white border border-white/20 flex items-center">
-            <a href="https://www.eleva-boutique.net/" target="_blank" rel="noopener noreferrer" className="flex items-center">
+            <a href="https://glorianaturals.ae/" target="_blank" rel="noopener noreferrer" className="flex items-center">
               <Globe className="mr-1.5 h-4 w-4" />
               <span>Website</span>
             </a>

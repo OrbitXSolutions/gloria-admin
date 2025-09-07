@@ -1,6 +1,6 @@
 # Order Management Actions
 
-This directory contains server actions for managing orders in the Eleva Boutique admin system.
+This directory contains server actions for managing orders in the Gloria Natural admin system.
 
 ## Order Status Update System
 
@@ -37,7 +37,7 @@ const result = await updateOrderStatus({
   orderId: 123,
   newStatus: "shipped",
   adminNote: "Order shipped via Express Delivery",
-  changedBy: "admin@eleva-boutique.net"
+  changedBy: "admin@glorianaturals.ae"
 });
 
 if (result.success) {
